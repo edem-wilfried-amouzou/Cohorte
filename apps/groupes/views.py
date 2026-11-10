@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
@@ -9,11 +11,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .forms import BulkGroupsForm, ClasseForm, GroupeForm, ImportForm, MembreForm
-from .models import Classe, Groupe, Membre, normalize
+from .forms import ActiviteForm, BulkGroupsForm, ClasseForm, GroupeForm, ImportForm, MembreForm
+from .models import Activite, Classe, Groupe, Membre, Participation, normalize
 from .services import importing
 from .services.allocation import auto_assign
-from .services.exporting import EXPORTERS, collect, filename
+from .services.exporting import EXPORTERS, collect, collect_activity, filename
 from .services.qr import qr_svg
 from .throttle import too_many
 
@@ -22,12 +24,16 @@ def _classe(request, pk) -> Classe:
     return get_object_or_404(Classe, pk=pk, owner=request.user)
 
 
+def _activite(request, pk, apk) -> Activite:
+    return get_object_or_404(Activite, pk=apk, classe=_classe(request, pk))
+
+
 def _is_htmx(request) -> bool:
     return request.headers.get("HX-Request") == "true"
 
 
 def _groupes_with_size(classe):
-    groupes = list(classe.groupes.annotate(size=Count("membres")))
+    groupes = list(classe.groupes.filter(activite__isnull=True).annotate(size=Count("membres")))
     for g in groupes:
         g.full = g.capacity is not None and g.size >= g.capacity
     return groupes
@@ -51,7 +57,9 @@ def _assign(member: Membre, groupe_id) -> tuple[bool, str]:
         member.save(update_fields=["groupe"])
         return True, ""
     with transaction.atomic():
-        groupe = Groupe.objects.select_for_update().filter(pk=groupe_id, classe_id=member.classe_id).first()
+        groupe = Groupe.objects.select_for_update().filter(
+            pk=groupe_id, classe_id=member.classe_id, activite__isnull=True,
+        ).first()
         if groupe is None:
             return False, "Groupe introuvable."
         if groupe.pk != member.groupe_id and groupe.capacity is not None and groupe.membres.count() >= groupe.capacity:
@@ -75,7 +83,8 @@ def dashboard(request):
     classes = list(
         request.user.classes.annotate(
             n_membres=Count("membres", distinct=True),
-            n_groupes=Count("groupes", distinct=True),
+            n_groupes=Count("groupes", filter=Q(groupes__activite__isnull=True), distinct=True),
+            n_activites=Count("activites", distinct=True),
             n_affectes=Count("membres", filter=Q(membres__groupe__isnull=False), distinct=True),
         )
     )
@@ -105,10 +114,190 @@ def classe_detail(request, pk):
         "classe": classe,
         "stats": _stats(classe),
         "groupes": _groupes_with_size(classe),
+        "activites": classe.activites.annotate(
+            n_groupes=Count("groupes", distinct=True),
+            n_reponses=Count("participations", filter=Q(participations__responded_at__isnull=False), distinct=True),
+        ),
         "sans": classe.membres.sans_groupe().order_by("search_name")[:12],
         "public_url": request.build_absolute_uri(reverse("groupes:join", args=[classe.token])),
         "tab": "overview",
     })
+
+
+@login_required
+def activities(request, pk):
+    classe = _classe(request, pk)
+    data = list(classe.activites.annotate(
+        n_groupes=Count("groupes", distinct=True),
+        n_affectes=Count("participations", filter=Q(participations__groupe__isnull=False), distinct=True),
+        n_reponses=Count("participations", filter=Q(participations__responded_at__isnull=False), distinct=True),
+    ))
+    return render(request, "groupes/activities.html", {"classe": classe, "activites": data, "form": ActiviteForm(), "tab": "activities"})
+
+
+@login_required
+@require_POST
+def activity_create(request, pk):
+    classe = _classe(request, pk)
+    form = ActiviteForm(request.POST)
+    if form.is_valid():
+        activity = form.save(commit=False)
+        activity.classe = classe
+        activity.save()
+        messages.success(request, "Activité créée. Tu peux maintenant créer ses groupes.")
+        return redirect("groupes:activity_detail", pk=classe.pk, apk=activity.pk)
+    return render(request, "groupes/activities.html", {"classe": classe, "activites": classe.activites.all(), "form": form, "tab": "activities"})
+
+
+@login_required
+def activity_detail(request, pk, apk):
+    classe = _classe(request, pk)
+    activity = _activite(request, pk, apk)
+    groups = list(activity.groupes.annotate(size=Count("participations")))
+    participation_by_member = {
+        item.membre_id: item
+        for item in activity.participations.select_related("membre", "groupe")
+    }
+    participants = []
+    for member in classe.membres.order_by("search_name"):
+        participation = participation_by_member.get(member.pk)
+        participants.append(SimpleNamespace(
+            membre=member,
+            groupe=participation.groupe if participation else None,
+            groupe_id=participation.groupe_id if participation else None,
+            status_label=participation.status_label if participation else "Pas encore répondu",
+        ))
+    answered = activity.participations.filter(responded_at__isnull=False)
+    stats = {
+        "total": classe.membres.count(),
+        "affectes": answered.filter(groupe__isnull=False).count(),
+        "declares": answered.filter(groupe__isnull=True).count(),
+        "attente": classe.membres.exclude(participations__activite=activity, participations__responded_at__isnull=False).distinct().count(),
+    }
+    return render(request, "groupes/activity_detail.html", {
+        "classe": classe, "activite": activity, "groupes": groups, "participants": participants,
+        "membres": classe.membres.order_by("search_name"), "group_form": GroupeForm(classe=classe, activite=activity),
+        "bulk": BulkGroupsForm(), "form": ActiviteForm(instance=activity), "stats": stats,
+        "public_url": request.build_absolute_uri(reverse("groupes:activity_join", args=[activity.token])),
+        "tab": "activities",
+    })
+
+
+@login_required
+def activity_qr(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    url = request.build_absolute_uri(reverse("groupes:activity_join", args=[activity.token]))
+    return HttpResponse(qr_svg(url), content_type="image/svg+xml")
+
+
+@login_required
+@require_POST
+def activity_group_create(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    form = GroupeForm(request.POST, classe=activity.classe, activite=activity)
+    if form.is_valid():
+        group = form.save(commit=False)
+        group.classe, group.activite = activity.classe, activity
+        group.save()
+        messages.success(request, f"{group.short_label} créé.")
+    else:
+        messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_group_edit(request, pk, apk, gpk):
+    activity = _activite(request, pk, apk)
+    group = get_object_or_404(Groupe, pk=gpk, activite=activity)
+    form = GroupeForm(request.POST, instance=group, classe=activity.classe, activite=activity)
+    if form.is_valid():
+        form.save()
+        messages.success(request, f"{group.short_label} modifié.")
+    else:
+        messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_group_delete(request, pk, apk, gpk):
+    activity = _activite(request, pk, apk)
+    group = get_object_or_404(Groupe, pk=gpk, activite=activity)
+    group.delete()
+    messages.success(request, "Groupe supprimé. Les membres restent dans la classe et passent sans groupe pour cette activité.")
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_groups_bulk(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    form = BulkGroupsForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Indique un nombre de groupes entre 1 et 100.")
+        return redirect("groupes:activity_detail", pk=pk, apk=apk)
+    existing = set(activity.groupes.values_list("number", flat=True))
+    groups = [
+        Groupe(classe=activity.classe, activite=activity, number=number, capacity=form.cleaned_data["capacity"])
+        for number in range(1, form.cleaned_data["count"] + 1) if number not in existing
+    ]
+    Groupe.objects.bulk_create(groups)
+    messages.success(request, f"{len(groups)} groupe(s) créé(s).")
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_assign(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    member = get_object_or_404(Membre, pk=_int_or_none(request.POST.get("membre")), classe=activity.classe)
+    group_id = _int_or_none(request.POST.get("groupe"))
+    group = None
+    if group_id:
+        group = get_object_or_404(Groupe, pk=group_id, activite=activity)
+        current = Participation.objects.filter(activite=activity, groupe=group).count()
+        existing = Participation.objects.filter(activite=activity, membre=member).first()
+        if group.capacity is not None and current >= group.capacity and (existing is None or existing.groupe_id != group.pk):
+            messages.error(request, f"{group.short_label} est complet.")
+            return redirect("groupes:activity_detail", pk=pk, apk=apk)
+    Participation.objects.update_or_create(
+        activite=activity, membre=member,
+        defaults={"groupe": group, "responded_at": timezone.now()},
+    )
+    messages.success(request, f"Affectation de {member.full_name} mise à jour.")
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_regenerate(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    activity.regenerate_token()
+    messages.success(request, "Nouveau lien créé. L'ancien ne fonctionne plus.")
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_update(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    form = ActiviteForm(request.POST, instance=activity)
+    if form.is_valid():
+        form.save()
+        messages.success(request, "Réglages de l’activité enregistrés.")
+    else:
+        messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_delete(request, pk, apk):
+    activity = _activite(request, pk, apk)
+    activity.delete()
+    messages.success(request, "Activité supprimée.")
+    return redirect("groupes:activities", pk=pk)
 
 
 @login_required
@@ -256,7 +445,7 @@ def auto_assign_view(request, pk):
 @login_required
 def groups(request, pk):
     classe = _classe(request, pk)
-    columns = list(classe.groupes.prefetch_related("membres"))
+    columns = list(classe.groupes.filter(activite__isnull=True).prefetch_related("membres"))
     for g in columns:
         g.people = sorted(g.membres.all(), key=lambda m: m.search_name)
         g.full = g.capacity is not None and len(g.people) >= g.capacity
@@ -275,6 +464,7 @@ def group_create(request, pk):
     if form.is_valid():
         group = form.save(commit=False)
         group.classe = classe
+        group.activite = None
         group.save()
         messages.success(request, f"{group.short_label} créé.")
     else:
@@ -290,10 +480,10 @@ def groups_bulk(request, pk):
     if not form.is_valid():
         messages.error(request, "Indique un nombre de groupes entre 1 et 100.")
         return redirect("groupes:groups", pk=classe.pk)
-    existing = set(classe.groupes.values_list("number", flat=True))
+    existing = set(classe.groupes.filter(activite__isnull=True).values_list("number", flat=True))
     capacity = form.cleaned_data["capacity"]
     new = [
-        Groupe(classe=classe, number=n, capacity=capacity)
+        Groupe(classe=classe, activite=None, number=n, capacity=capacity)
         for n in range(1, form.cleaned_data["count"] + 1) if n not in existing
     ]
     Groupe.objects.bulk_create(new)
@@ -363,14 +553,101 @@ def export_view(request, pk, fmt):
     return response
 
 
+@login_required
+@require_GET
+def activity_export_view(request, pk, apk, fmt):
+    activity = _activite(request, pk, apk)
+    if fmt not in EXPORTERS:
+        raise Http404
+    build, content_type = EXPORTERS[fmt]
+    response = HttpResponse(build(collect_activity(activity)), content_type=content_type)
+    response["Content-Disposition"] = f'attachment; filename="{filename(activity, fmt)}"'
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 # --- Page publique (lien partagé) ----------------------------------------------
 def _public_classe(token) -> Classe:
     return get_object_or_404(Classe, token=token)
 
 
+def _public_activite(token) -> Activite:
+    return get_object_or_404(Activite.objects.select_related("classe"), token=token)
+
+
+@require_http_methods(["GET", "POST"])
+def activity_join(request, token):
+    activity = _public_activite(token)
+    classe = activity.classe
+    if not activity.accepting:
+        return render(request, "public/closed.html", {"classe": classe, "activite": activity}, status=200)
+    groups = list(activity.groupes.annotate(size=Count("participations")))
+    ctx = {"classe": classe, "activite": activity, "groupes": groups, "values": {}, "error": ""}
+    if request.method == "GET":
+        return render(request, "public/activity_join.html", ctx)
+
+    values = {"name": request.POST.get("name", "").strip()[:120], "member_id": request.POST.get("member_id", ""), "groupe": request.POST.get("groupe", "")}
+    ctx["values"] = values
+
+    def fail(message):
+        ctx["error"] = message
+        return render(request, "public/activity_join.html", ctx, status=400)
+
+    if request.POST.get("website"):
+        return redirect("groupes:activity_join_done", token=activity.token)
+    if too_many(request, "activity_join", 20):
+        return fail("Trop de tentatives. Patiente une minute puis réessaie.")
+    member_id = _int_or_none(values["member_id"])
+    try:
+        with transaction.atomic():
+            member_query = classe.membres.select_for_update()
+            member = member_query.filter(pk=member_id).first() if member_id else member_query.filter(search_name=normalize(values["name"])).first()
+            if member is None:
+                return fail("Choisis ton nom dans la liste de la classe.")
+            if activity.participations.filter(membre=member).exists():
+                return fail("Ta réponse pour cette activité a déjà été enregistrée. Contacte l'organisateur pour la modifier.")
+            group = None
+            if values["groupe"] != "none":
+                group = activity.groupes.select_for_update().filter(pk=_int_or_none(values["groupe"])).first()
+                if group is None:
+                    return fail("Choisis un groupe, ou « Pas de groupe ».")
+                if group.capacity is not None and group.participations.count() >= group.capacity:
+                    return fail(f"{group.short_label} est complet. Choisis un autre groupe.")
+            Participation.objects.create(activite=activity, membre=member, groupe=group, responded_at=timezone.now())
+    except IntegrityError:
+        return fail("Ta réponse vient d'être enregistrée. Actualise la page pour voir son état.")
+    request.session[f"activity_joined:{activity.token}"] = {"name": member.full_name, "group": group.label if group else ""}
+    return redirect("groupes:activity_join_done", token=activity.token)
+
+
+@require_GET
+def activity_join_search(request, token):
+    activity = _public_activite(token)
+    if not activity.accepting or too_many(request, "activity_search", 90):
+        return JsonResponse({"results": []})
+    query = request.GET.get("q", "").strip()
+    if len(query) < 2:
+        return JsonResponse({"results": []})
+    answered = activity.participations.values_list("membre_id", flat=True)
+    found = activity.classe.membres.exclude(pk__in=answered).search(query)[:8]
+    return JsonResponse({"results": [{"id": member.pk, "name": member.full_name} for member in found]})
+
+
+@require_GET
+def activity_join_done(request, token):
+    activity = _public_activite(token)
+    return render(request, "public/done.html", {
+        "classe": activity.classe, "activite": activity,
+        "result": request.session.get(f"activity_joined:{activity.token}"),
+    })
+
+
 @require_http_methods(["GET", "POST"])
 def join(request, token):
     classe = _public_classe(token)
+    legacy_activity = classe.activites.filter(token=token).first()
+    if legacy_activity:
+        return redirect("groupes:activity_join", token=legacy_activity.token)
     if not classe.accepting:
         return render(request, "public/closed.html", {"classe": classe}, status=200)
 
@@ -438,6 +715,9 @@ def join(request, token):
 @require_GET
 def join_search(request, token):
     classe = _public_classe(token)
+    legacy_activity = classe.activites.filter(token=token).first()
+    if legacy_activity:
+        return activity_join_search(request, legacy_activity.token)
     if not classe.accepting or too_many(request, "search", 90):
         return JsonResponse({"results": []})
     q = request.GET.get("q", "").strip()
@@ -450,6 +730,9 @@ def join_search(request, token):
 @require_GET
 def join_done(request, token):
     classe = _public_classe(token)
+    legacy_activity = classe.activites.filter(token=token).first()
+    if legacy_activity:
+        return redirect("groupes:activity_join_done", token=legacy_activity.token)
     return render(request, "public/done.html", {
         "classe": classe, "result": request.session.get(f"joined:{classe.token}"),
     })

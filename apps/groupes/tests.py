@@ -7,7 +7,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Classe, Groupe, Membre, normalize
+from .models import Activite, Classe, Groupe, Membre, Participation, normalize
 from .services import importing
 from .services.allocation import auto_assign
 
@@ -62,6 +62,14 @@ class ImportTests(Base):
         wb.save(buf)
         rows = importing.parse_upload(SimpleUploadedFile("l.xlsx", buf.getvalue()))
         self.assertEqual((rows[0].name, rows[0].group), ("Zoe Mensah", 3))
+
+    def test_csv_import_with_separate_names_and_sex(self):
+        data = "Nom;Prénom;Sexe;Matricule\nMensah;Ama;Femme;A12\n".encode()
+        rows = importing.parse_upload(SimpleUploadedFile("classe.csv", data))
+        result = importing.import_rows(self.classe, rows)
+        member = Membre.objects.get(classe=self.classe, full_name="Ama Mensah")
+        self.assertEqual(result["created"], 1)
+        self.assertEqual((member.sex, member.reference), ("F", "A12"))
 
     def test_rejects_bad_files(self):
         with self.assertRaises(importing.ImportError_):
@@ -221,3 +229,42 @@ class OwnerActionsTests(Base):
         self.client.post(reverse("groupes:regenerate", args=[self.classe.pk]))
         self.classe.refresh_from_db()
         self.assertNotEqual(old, self.classe.token)
+
+    def test_activity_has_independent_groups_and_public_answers(self):
+        activity = Activite.objects.create(classe=self.classe, title="Exposé énergie")
+        group = Groupe.objects.create(classe=self.classe, activite=activity, number=1, theme="Solaire")
+        activity_two = Activite.objects.create(classe=self.classe, title="Projet réseau")
+        other_group = Groupe.objects.create(classe=self.classe, activite=activity_two, number=1)
+
+        detail = self.client.get(reverse("groupes:activity_detail", args=[self.classe.pk, activity.pk]))
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.context["stats"]["attente"], 3)
+        response = self.client.post(reverse("groupes:activity_join", args=[activity.token]), {
+            "name": self.ama.full_name, "member_id": self.ama.pk, "groupe": group.pk,
+        })
+        self.assertRedirects(response, reverse("groupes:activity_join_done", args=[activity.token]))
+        Participation.objects.create(activite=activity_two, membre=self.ama, groupe=other_group)
+        self.assertEqual(activity.participations.get(membre=self.ama).groupe, group)
+        self.assertEqual(activity_two.participations.get(membre=self.ama).groupe, other_group)
+
+    def test_activity_group_can_be_edited(self):
+        activity = Activite.objects.create(classe=self.classe, title="Exposé énergie")
+        group = Groupe.objects.create(classe=self.classe, activite=activity, number=1)
+        response = self.client.post(reverse("groupes:activity_group_edit", args=[self.classe.pk, activity.pk, group.pk]), {
+            "number": 1, "name": "Équipe soleil", "capacity": 4, "theme": "Énergies renouvelables", "presentation_order": 2,
+        })
+        self.assertEqual(response.status_code, 302)
+        group.refresh_from_db()
+        self.assertEqual((group.name, group.theme, group.presentation_order), ("Équipe soleil", "Énergies renouvelables", 2))
+
+    def test_activity_export_contains_activity_rows(self):
+        activity = Activite.objects.create(classe=self.classe, title="Projet solaire")
+        group = Groupe.objects.create(classe=self.classe, activite=activity, number=1)
+        Participation.objects.create(activite=activity, membre=self.ama, groupe=group, responded_at=timezone.now())
+        expectations = {"pdf": b"%PDF", "xlsx": b"PK", "docx": b"PK", "csv": b"\xef\xbb\xbfGroupe"}
+        for fmt, magic in expectations.items():
+            response = self.client.get(reverse("groupes:activity_export", args=[self.classe.pk, activity.pk, fmt]))
+            self.assertEqual(response.status_code, 200, fmt)
+            self.assertTrue(response.content.startswith(magic), fmt)
+            if fmt == "csv":
+                self.assertIn(b"AMEGAH Kossi", response.content)

@@ -4,7 +4,7 @@
 <main class="container">
   {% include "partials/messages.html" %}
   <div class="page-head">
-    <div><h1>Mes classes</h1><p>Une classe = une liste de personnes + des groupes + un lien à partager.</p></div>
+    <div><h1>Mes classes</h1><p>Gère tes listes d’étudiants, puis organise chaque exposé ou projet séparément.</p></div>
     <a class="btn" href="{% url 'groupes:create' %}">Nouvelle classe</a>
   </div>
   {% if classes %}
@@ -13,7 +13,7 @@
     <a class="classe-card" href="{% url 'groupes:detail' c.pk %}">
       <div>
         <h3>{{ c.name }}</h3>
-        <p class="muted small">{{ c.n_membres }} personne{{ c.n_membres|pluralize }}, {{ c.n_groupes }} groupe{{ c.n_groupes|pluralize }}</p>
+        <p class="muted small">{{ c.n_membres }} membre{{ c.n_membres|pluralize }} · {{ c.n_activites }} activité{{ c.n_activites|pluralize }}{% if c.n_groupes %} · {{ c.n_groupes }} groupe{{ c.n_groupes|pluralize }} historique{{ c.n_groupes|pluralize }}{% endif %}</p>
       </div>
       <div>{% if c.n_sans %}<span class="badge sans_groupe">{{ c.n_sans }} sans groupe</span>{% elif c.n_membres %}<span class="badge affecte">Tout le monde a un groupe</span>{% else %}<span class="badge en_attente">Liste vide</span>{% endif %}</div>
       <div class="bar {% if c.pct == 100 %}full{% endif %}" role="img" aria-label="{{ c.pct }} % de personnes affectées"><i style="width: {{ c.pct }}%"></i></div>
@@ -23,7 +23,7 @@
   {% else %}
   <div class="empty">
     <h2>Crée ta première classe</h2>
-    <p>Ajoute la liste de ta salle, crée les groupes, partage le lien.</p>
+    <p>Importe ta classe, crée des exposés ou projets indépendants, puis partage un lien pour chacun.</p>
     <a class="btn" href="{% url 'groupes:create' %}">Nouvelle classe</a>
   </div>
   {% endif %}

@@ -49,16 +49,59 @@ class Classe(models.Model):
         self.save(update_fields=["token"])
 
 
+class Activite(models.Model):
+    class Kind(models.TextChoices):
+        PRESENTATION = "presentation", "Exposé"
+        PROJECT = "project", "Projet"
+        OTHER = "other", "Autre"
+
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="activites")
+    title = models.CharField("Nom", max_length=140)
+    kind = models.CharField("Type", max_length=20, choices=Kind.choices, default=Kind.PRESENTATION)
+    theme = models.CharField("Thème", max_length=180, blank=True)
+    token = models.CharField(max_length=24, unique=True, default=new_token, editable=False)
+    is_open = models.BooleanField("Lien ouvert", default=True)
+    deadline = models.DateTimeField("Date limite", null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "activité"
+
+    def __str__(self):
+        return self.title
+
+    @property
+    def accepting(self) -> bool:
+        return self.is_open and (self.deadline is None or self.deadline > timezone.now())
+
+    def regenerate_token(self):
+        self.token = new_token()
+        self.save(update_fields=["token"])
+
+
 class Groupe(models.Model):
     classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="groupes")
+    activite = models.ForeignKey(
+        Activite, null=True, blank=True, on_delete=models.CASCADE, related_name="groupes",
+    )
     number = models.PositiveIntegerField("Numéro")
     name = models.CharField("Nom (facultatif)", max_length=80, blank=True)
     capacity = models.PositiveSmallIntegerField("Capacité maximale", null=True, blank=True)
+    theme = models.CharField("Thème", max_length=180, blank=True)
+    presentation_order = models.PositiveSmallIntegerField("Ordre de passage", null=True, blank=True)
 
     class Meta:
         ordering = ["number"]
         constraints = [
-            models.UniqueConstraint(fields=["classe", "number"], name="groupe_numero_unique_par_classe"),
+            models.UniqueConstraint(
+                fields=["classe", "number"], condition=models.Q(activite__isnull=True),
+                name="groupe_numero_unique_hors_activite",
+            ),
+            models.UniqueConstraint(
+                fields=["activite", "number"], condition=models.Q(activite__isnull=False),
+                name="groupe_numero_unique_par_activite",
+            ),
         ]
 
     def __str__(self):
@@ -92,6 +135,11 @@ class MembreQuerySet(models.QuerySet):
 
 
 class Membre(models.Model):
+    class Sex(models.TextChoices):
+        FEMALE = "F", "Femme"
+        MALE = "M", "Homme"
+        OTHER = "X", "Autre / non précisé"
+
     class Source(models.TextChoices):
         IMPORT = "import", "Import"
         MANUAL = "manual", "Ajout manuel"
@@ -99,6 +147,7 @@ class Membre(models.Model):
 
     classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="membres")
     full_name = models.CharField("Nom complet", max_length=120)
+    sex = models.CharField("Sexe", max_length=1, choices=Sex.choices, blank=True)
     search_name = models.CharField(max_length=140, editable=False, db_index=True)
     reference = models.CharField("Matricule", max_length=40, blank=True)
     groupe = models.ForeignKey(Groupe, null=True, blank=True, on_delete=models.SET_NULL, related_name="membres")
@@ -138,3 +187,24 @@ class Membre(models.Model):
             "sans_groupe": "Sans groupe",
             "en_attente": "Pas encore répondu",
         }[self.status]
+
+
+class Participation(models.Model):
+    activite = models.ForeignKey(Activite, on_delete=models.CASCADE, related_name="participations")
+    membre = models.ForeignKey(Membre, on_delete=models.CASCADE, related_name="participations")
+    groupe = models.ForeignKey(
+        Groupe, null=True, blank=True, on_delete=models.SET_NULL, related_name="participations",
+    )
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["membre__search_name"]
+        constraints = [
+            models.UniqueConstraint(fields=["activite", "membre"], name="participation_unique_par_activite"),
+        ]
+
+    @property
+    def status_label(self) -> str:
+        if self.groupe_id:
+            return "Affecté"
+        return "Sans groupe" if self.responded_at else "Pas encore répondu"

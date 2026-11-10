@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ activite.title }} - Choisir un groupe{% endblock %}
+{% block head %}<script src="{% static 'js/join.js' %}" defer></script>{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<main class="public activity-public">
+  <div class="public-card">
+    <header class="public-head"><p class="brand">{% include "partials/logo.html" %}Cohorte</p><p class="eyebrow">{{ classe.name }} · {{ activite.get_kind_display }}</p><h1>{{ activite.title }}</h1>{% if activite.theme %}<p>Thème : {{ activite.theme }}</p>{% endif %}</header>
+    {% if error %}<div class="msg error" role="alert" style="margin-bottom:1rem">{{ error }}</div>{% endif %}
+    <form id="join-form" class="card" method="post" data-search-url="{% url 'groupes:activity_join_search' activite.token %}" data-allow-unlisted="0">
+      {% csrf_token %}<div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="field combo"><label for="name">Ton nom dans la classe</label><input id="name" name="name" type="text" value="{{ values.name }}" required maxlength="120" autocomplete="off" autocapitalize="words" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="combo-list" placeholder="Recherche par nom ou prénom"><ul id="combo-list" class="combo-list" role="listbox" aria-label="Noms suggérés" hidden></ul><input type="hidden" id="member_id" name="member_id" value="{{ values.member_id }}"><div id="picked" class="picked {% if values.member_id %}on{% endif %}"><span>Nom choisi : <span id="picked-name">{{ values.name }}</span></span></div></div>
+      <fieldset class="picker activity-picker"><legend>Choisis ton groupe</legend>
+        {% for groupe in groupes %}<label class="pick"><input type="radio" name="groupe" value="{{ groupe.pk }}" required {% if groupe.capacity and groupe.size >= groupe.capacity %}disabled{% endif %} {% if values.groupe == groupe.pk|stringformat:'s' %}checked{% endif %}><span><b>{{ groupe.number }}</b><small>{% if groupe.capacity and groupe.size >= groupe.capacity %}complet{% elif groupe.name %}{{ groupe.name }}{% elif groupe.capacity %}{{ groupe.size }}/{{ groupe.capacity }}{% endif %}</small></span></label>{% endfor %}
+        <label class="pick none"><input type="radio" name="groupe" value="none" required {% if values.groupe == 'none' %}checked{% endif %}><span>Pas encore de groupe</span></label>
+      </fieldset>
+      <button class="btn block" type="submit" style="margin-top:1rem">Confirmer mon choix</button>
+    </form>
+  </div>
+</main>
+{% endblock %}

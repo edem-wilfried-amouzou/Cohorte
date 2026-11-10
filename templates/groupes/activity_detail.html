@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ activite.title }} - {{ classe.name }}{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+  <div class="activity-title-row">
+    <div><p class="eyebrow">{{ activite.get_kind_display }}{% if activite.theme %} · {{ activite.theme }}{% endif %}</p><h2>{{ activite.title }}</h2></div>
+    <div class="activity-actions">
+      <form method="post" action="{% url 'groupes:activity_delete' classe.pk activite.pk %}" data-confirm="Supprimer cette activité et ses groupes ? Les membres de la classe seront conservés.">{% csrf_token %}<button class="btn danger small" type="submit">Supprimer l’activité</button></form>
+    </div>
+  </div>
+  <section class="stats activity-stats">
+    <div class="stat"><b>{{ stats.total }}</b><span>Participations</span></div>
+    <div class="stat"><b>{{ stats.affectes }}</b><span>Dans un groupe</span></div>
+    <div class="stat"><b>{{ stats.declares }}</b><span>Sans groupe</span></div>
+    <div class="stat"><b>{{ stats.attente }}</b><span>En attente</span></div>
+  </section>
+  <div class="activity-detail-grid">
+    <section class="activity-main">
+      <div class="activity-tools">
+        <form method="post" action="{% url 'groupes:activity_group_create' classe.pk activite.pk %}" class="card">
+          {% csrf_token %}<h3>Ajouter un groupe</h3><div class="inline-form">
+          {% include "partials/field.html" with field=group_form.number %}{% include "partials/field.html" with field=group_form.name %}{% include "partials/field.html" with field=group_form.capacity %}
+          </div>
+          <div class="inline-form activity-extra-fields">{% include "partials/field.html" with field=group_form.theme %}{% include "partials/field.html" with field=group_form.presentation_order %}<button class="btn" type="submit">Ajouter</button></div>
+        </form>
+        <form method="post" action="{% url 'groupes:activity_groups_bulk' classe.pk activite.pk %}" class="card">
+          {% csrf_token %}<h3>Créer une série</h3><div class="inline-form">{% include "partials/field.html" with field=bulk.count %}{% include "partials/field.html" with field=bulk.capacity %}<button class="btn ghost" type="submit">Créer les groupes</button></div>
+        </form>
+      </div>
+      <div class="group-grid">
+        {% for groupe in groupes %}
+        <article class="activity-group">
+          <header><span class="group-number">{{ groupe.number }}</span><div><h3>{{ groupe.name|default:groupe.short_label }}</h3><p>{% if groupe.theme %}{{ groupe.theme }} · {% endif %}{{ groupe.size }} membre{{ groupe.size|pluralize }}{% if groupe.capacity %} / {{ groupe.capacity }}{% endif %}</p></div>{% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}</header>
+          <ul>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<li>{{ participation.membre.full_name }}</li>{% endif %}{% endfor %}</ul>
+          <details class="group-edit"><summary>Modifier</summary><form method="post" action="{% url 'groupes:activity_group_edit' classe.pk activite.pk groupe.pk %}" class="stack">
+            {% csrf_token %}<div class="field"><label for="group-number-{{ groupe.pk }}">Numéro</label><input id="group-number-{{ groupe.pk }}" name="number" type="number" min="1" max="500" value="{{ groupe.number }}" required></div>
+            <div class="field"><label for="group-name-{{ groupe.pk }}">Nom du groupe</label><input id="group-name-{{ groupe.pk }}" name="name" value="{{ groupe.name }}" maxlength="80"></div>
+            <div class="field"><label for="group-theme-{{ groupe.pk }}">Thème</label><input id="group-theme-{{ groupe.pk }}" name="theme" value="{{ groupe.theme }}" maxlength="180"></div>
+            <div class="inline-form"><div class="field"><label for="group-capacity-{{ groupe.pk }}">Capacité</label><input id="group-capacity-{{ groupe.pk }}" name="capacity" type="number" min="1" value="{{ groupe.capacity|default_if_none:'' }}"></div><div class="field"><label for="group-order-{{ groupe.pk }}">Ordre de passage</label><input id="group-order-{{ groupe.pk }}" name="presentation_order" type="number" min="1" value="{{ groupe.presentation_order|default_if_none:'' }}"></div></div>
+            <button class="btn ghost small" type="submit">Enregistrer</button>
+          </form><form method="post" action="{% url 'groupes:activity_group_delete' classe.pk activite.pk groupe.pk %}" data-confirm="Supprimer ce groupe ? Ses participations resteront sans groupe.">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer le groupe</button></form></details>
+        </article>
+        {% empty %}<div class="empty"><p>Crée un groupe ou une série de groupes pour commencer.</p></div>{% endfor %}
+      </div>
+      <section class="card assignment-section"><div class="row between"><h3>Affecter une personne</h3><span class="muted small">Choisis la personne puis son groupe.</span></div>
+        <form method="post" action="{% url 'groupes:activity_assign' classe.pk activite.pk %}" class="inline-form">
+          {% csrf_token %}<div class="field"><label for="assign-member">Membre de la classe</label><select id="assign-member" name="membre" required><option value="">Sélectionner…</option>{% for membre in membres %}<option value="{{ membre.pk }}">{{ membre.full_name }}</option>{% endfor %}</select></div>
+          <div class="field"><label for="assign-group">Groupe</label><select id="assign-group" name="groupe"><option value="">Sans groupe</option>{% for groupe in groupes %}<option value="{{ groupe.pk }}">{{ groupe.short_label }}{% if groupe.name %} · {{ groupe.name }}{% endif %}</option>{% endfor %}</select></div>
+          <button class="btn" type="submit">Enregistrer</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>Membre</th><th>Groupe</th><th>État</th></tr></thead><tbody>
+          {% for participation in participants %}<tr><td>{{ participation.membre.full_name }}</td><td>{{ participation.groupe.label|default:"Sans groupe" }}</td><td>{{ participation.status_label }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Aucune réponse enregistrée.</td></tr>{% endfor %}
+        </tbody></table></div>
+      </section>
+    </section>
+    <aside class="activity-aside">
+      <section class="card share-card"><div class="share-heading"><span class="share-icon">↗</span><div><h3>Lien d’inscription</h3><p>Un lien par exposé ou projet</p></div></div>
+        {% if activite.accepting %}<div class="linkbox"><input id="activity-url" type="text" readonly value="{{ public_url }}" aria-label="Lien de l’activité"><button class="btn" type="button" data-copy="#activity-url">Copier</button></div>
+        <img class="activity-qr" src="{% url 'groupes:activity_qr' classe.pk activite.pk %}" alt="QR code du lien de l’activité">
+        {% else %}<p class="muted">Le lien est fermé.</p>{% endif %}
+        <div class="row"><span class="badge {% if activite.accepting %}affecte{% else %}en_attente{% endif %}">{% if activite.accepting %}Inscriptions ouvertes{% else %}Inscriptions fermées{% endif %}</span>
+        <form method="post" action="{% url 'groupes:activity_regenerate' classe.pk activite.pk %}" data-confirm="L’ancien lien cessera de fonctionner.">{% csrf_token %}<button class="linkbtn" type="submit">Renouveler le lien</button></form></div>
+      </section>
+      <section class="card export-card"><h3>Exporter cette activité</h3><p class="muted small">Groupes, membres et états de réponse.</p><div class="row">
+        <a class="btn ghost small" href="{% url 'groupes:activity_export' classe.pk activite.pk 'pdf' %}" aria-label="Exporter en PDF">PDF</a>
+        <a class="btn ghost small" href="{% url 'groupes:activity_export' classe.pk activite.pk 'xlsx' %}" aria-label="Exporter en Excel">Excel</a>
+        <a class="btn ghost small" href="{% url 'groupes:activity_export' classe.pk activite.pk 'docx' %}" aria-label="Exporter en Word">Word</a>
+        <a class="btn ghost small" href="{% url 'groupes:activity_export' classe.pk activite.pk 'csv' %}" aria-label="Exporter en CSV">CSV</a>
+      </div></section>
+      <details class="card activity-settings"><summary>Réglages de l’activité</summary><form method="post" action="{% url 'groupes:activity_update' classe.pk activite.pk %}" class="stack">
+        {% csrf_token %}{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}<button class="btn ghost" type="submit">Enregistrer</button>
+      </form></details>
+      <a class="btn ghost activity-back" href="{% url 'groupes:activities' classe.pk %}">← Toutes les activités</a>
+    </aside>
+  </div>
+</main>
+{% endblock %}

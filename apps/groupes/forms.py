@@ -1,7 +1,7 @@
 from django import forms
 from django.db.models import Q
 
-from .models import Classe, Groupe, Membre, normalize
+from .models import Activite, Classe, Groupe, Membre, normalize
 
 
 class ClasseForm(forms.ModelForm):
@@ -23,11 +23,12 @@ class ClasseForm(forms.ModelForm):
 class GroupeForm(forms.ModelForm):
     class Meta:
         model = Groupe
-        fields = ["number", "name", "capacity"]
+        fields = ["number", "name", "capacity", "theme", "presentation_order"]
 
-    def __init__(self, *args, classe=None, **kwargs):
+    def __init__(self, *args, classe=None, activite=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.classe = classe
+        self.activite = activite
         self.fields["number"].widget.attrs["min"] = 1
         self.fields["capacity"].widget.attrs["min"] = 1
         self.fields["capacity"].help_text = "Laisse vide pour ne pas limiter."
@@ -36,7 +37,7 @@ class GroupeForm(forms.ModelForm):
         number = self.cleaned_data["number"]
         if not 0 < number <= 500:
             raise forms.ValidationError("Choisis un numéro entre 1 et 500.")
-        clash = Groupe.objects.filter(classe=self.classe, number=number).exclude(pk=self.instance.pk)
+        clash = Groupe.objects.filter(classe=self.classe, activite=self.activite, number=number).exclude(pk=self.instance.pk)
         if clash.exists():
             raise forms.ValidationError(f"Le groupe {number} existe déjà.")
         return number
@@ -47,16 +48,29 @@ class BulkGroupsForm(forms.Form):
     capacity = forms.IntegerField(label="Capacité de chacun", min_value=1, max_value=500, required=False)
 
 
+class ActiviteForm(forms.ModelForm):
+    class Meta:
+        model = Activite
+        fields = ["title", "kind", "theme", "is_open", "deadline"]
+        widgets = {
+            "deadline": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["deadline"].input_formats = ["%Y-%m-%dT%H:%M"]
+
+
 class MembreForm(forms.ModelForm):
     class Meta:
         model = Membre
-        fields = ["full_name", "reference", "groupe", "verified"]
+        fields = ["full_name", "sex", "reference", "groupe", "verified"]
         labels = {"verified": "Nom vérifié"}
 
     def __init__(self, *args, classe=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.classe = classe
-        self.fields["groupe"].queryset = classe.groupes.all()
+        self.fields["groupe"].queryset = classe.groupes.filter(activite__isnull=True)
         self.fields["groupe"].empty_label = "Sans groupe"
         self.fields["groupe"].label = "Groupe"
         self.fields["full_name"].widget.attrs["autocomplete"] = "off"

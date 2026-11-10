@@ -10,6 +10,7 @@
       {% csrf_token %}
       <div class="inline-form">
         {% include "partials/field.html" with field=add_form.full_name %}
+        {% include "partials/field.html" with field=add_form.sex %}
         {% include "partials/field.html" with field=add_form.reference %}
         {% include "partials/field.html" with field=add_form.groupe %}
         <button class="btn" type="submit">Ajouter</button>

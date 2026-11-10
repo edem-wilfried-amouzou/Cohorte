@@ -18,8 +18,11 @@ NAME_KEYS = {
     "nom", "noms", "name", "nom complet", "nom et prenom", "nom et prenoms", "nom prenom",
     "nom prenoms", "etudiant", "eleve", "student", "full name",
 }
+FIRST_NAME_KEYS = {"prenom", "prenoms", "first name", "firstname"}
+LAST_NAME_KEYS = {"nom de famille", "nom", "surname", "last name", "lastname"}
 GROUP_KEYS = {"groupe", "group", "numero de groupe", "numero groupe", "n groupe", "num groupe"}
 REF_KEYS = {"matricule", "reference", "ref"}
+SEX_KEYS = {"sexe", "genre", "sex", "gender"}
 
 
 class ImportError_(Exception):
@@ -31,6 +34,7 @@ class Row:
     name: str
     group: int | None = None
     reference: str = ""
+    sex: str = ""
 
 
 def _clean(value) -> str:
@@ -51,18 +55,28 @@ def _rows_to_entries(rows: list[list[str]]) -> list[Row]:
         return []
     header = [normalize(_clean(c)).replace("°", "").replace(".", "") for c in rows[0]]
     name_i = next((i for i, h in enumerate(header) if h in NAME_KEYS), None)
+    first_i = next((i for i, h in enumerate(header) if h in FIRST_NAME_KEYS), None)
+    last_i = next((i for i, h in enumerate(header) if h in LAST_NAME_KEYS), None)
     group_i = next((i for i, h in enumerate(header) if h in GROUP_KEYS), None)
     ref_i = next((i for i, h in enumerate(header) if h in REF_KEYS), None)
+    sex_i = next((i for i, h in enumerate(header) if h in SEX_KEYS), None)
+    if first_i is not None and last_i is not None:
+        name_i = None
     if name_i is not None:
         body = rows[1:]
+    elif first_i is not None or last_i is not None:
+        name_i, body = None, rows[1:]
     else:
-        name_i, group_i, ref_i, body = 0, None, None, rows
+        name_i, first_i, last_i, group_i, ref_i, sex_i, body = 0, None, None, None, None, None, rows
     entries = []
     for r in body[:MAX_ROWS]:
         get = lambda i: _clean(r[i]) if i is not None and i < len(r) else ""
-        name = get(name_i)[:120]
+        name = get(name_i) if name_i is not None else " ".join(part for part in (get(first_i), get(last_i)) if part)
+        sex_value = normalize(get(sex_i))
+        sex = "F" if sex_value in {"f", "femme", "feminin", "female"} else "M" if sex_value in {"m", "homme", "masculin", "male"} else "X" if sex_value else ""
+        name = name[:120]
         if name:
-            entries.append(Row(name=name, group=_group_number(get(group_i)), reference=get(ref_i)[:40]))
+            entries.append(Row(name=name, group=_group_number(get(group_i)), reference=get(ref_i)[:40], sex=sex))
     return entries
 
 
@@ -110,7 +124,7 @@ def parse_upload(upload) -> list[Row]:
 @transaction.atomic
 def import_rows(classe, rows: list[Row]) -> dict:
     existing = {m.search_name: m for m in classe.membres.all()}
-    groups = {g.number: g for g in classe.groupes.all()}
+    groups = {g.number: g for g in classe.groupes.filter(activite__isnull=True)}
     now = timezone.now()
     result = {"created": 0, "duplicates": 0, "assigned": 0, "groups_created": 0}
     to_create, to_update = [], []
@@ -135,8 +149,8 @@ def import_rows(classe, rows: list[Row]) -> dict:
                 result["assigned"] += 1
             continue
         member = Membre(
-            classe=classe, full_name=row.name, search_name=key, reference=row.reference,
-            groupe=group, responded_at=now if group else None, source=Membre.Source.IMPORT,
+                classe=classe, full_name=row.name, search_name=key, reference=row.reference,
+            sex=row.sex, groupe=group, responded_at=now if group else None, source=Membre.Source.IMPORT,
         )
         existing[key] = member
         to_create.append(member)

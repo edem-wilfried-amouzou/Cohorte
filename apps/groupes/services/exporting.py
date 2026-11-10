@@ -5,10 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from django.db.models import Prefetch
+from django.db.models import F
 from django.utils import timezone
 from django.utils.text import slugify
 
-from ..models import Membre
+from ..models import Membre, Participation
 
 TERRA = "B4532F"
 INK = "1C1F23"
@@ -47,6 +48,60 @@ def collect(classe) -> Dataset:
     return Dataset(classe, groupes, sans, classe.membres.count())
 
 
+@dataclass
+class ExportMember:
+    full_name: str
+    reference: str
+    status_label: str
+
+
+class ExportMembers(list):
+    def all(self):
+        return self
+
+    def count(self):
+        return len(self)
+
+
+@dataclass
+class ExportGroup:
+    short_label: str
+    label: str
+    name: str
+    capacity: int | None
+    membres: ExportMembers
+
+
+@dataclass
+class ExportActivity:
+    name: str
+
+
+def collect_activity(activite) -> Dataset:
+    participations = list(
+        activite.participations.select_related("membre", "groupe").order_by("membre__search_name")
+    )
+    activity_groups = activite.groupes.order_by(F("presentation_order").asc(nulls_last=True), "number")
+    grouped = {group.pk: [] for group in activity_groups}
+    unassigned = []
+    for participation in participations:
+        member = ExportMember(
+            participation.membre.full_name,
+            participation.membre.reference,
+            participation.status_label,
+        )
+        if participation.groupe_id:
+            grouped[participation.groupe_id].append(member)
+        else:
+            unassigned.append(member)
+    groups = []
+    for group in activity_groups:
+        short_label = f"Groupe {group.number}"
+        label = f"{short_label} ({group.name})" if group.name else short_label
+        groups.append(ExportGroup(short_label, label, group.name, group.capacity, ExportMembers(grouped[group.pk])))
+    return Dataset(ExportActivity(activite.title), groups, unassigned, len(participations))
+
+
 def safe_cell(value):
     """Neutralise l'injection de formules dans Excel/CSV."""
     if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
@@ -55,7 +110,8 @@ def safe_cell(value):
 
 
 def filename(classe, ext: str) -> str:
-    return f"{slugify(classe.name) or 'classe'}-{timezone.localdate():%Y-%m-%d}.{ext}"
+    title = getattr(classe, "name", getattr(classe, "title", "classe"))
+    return f"{slugify(title) or 'classe'}-{timezone.localdate():%Y-%m-%d}.{ext}"
 
 
 # --- CSV --------------------------------------------------------------------

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Exposés et projets - {{ classe.name }}{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+  <div class="page-head">
+    <div><h2>Activités de la classe</h2><p>Chaque activité possède ses groupes, ses réponses et son lien de partage.</p></div>
+  </div>
+  <section class="activity-layout">
+    <div class="activity-list">
+      {% for activite in activites %}
+      <a class="activity-row" href="{% url 'groupes:activity_detail' classe.pk activite.pk %}">
+        <span class="activity-mark">{% if activite.kind == 'presentation' %}EX{% elif activite.kind == 'project' %}PR{% else %}AC{% endif %}</span>
+        <span class="activity-info"><strong>{{ activite.title }}</strong><small>{{ activite.get_kind_display }}{% if activite.theme %} · {{ activite.theme }}{% endif %}</small></span>
+        <span class="activity-count">{{ activite.n_groupes }} groupes</span>
+        <span class="activity-count">{{ activite.n_reponses }} réponses</span>
+        {% if activite.accepting %}<span class="badge affecte">Ouvert</span>{% else %}<span class="badge en_attente">Fermé</span>{% endif %}
+      </a>
+      {% empty %}
+      <div class="empty activity-empty"><h2>Aucun exposé ou projet pour l’instant</h2><p>Crée une activité, définis le nombre d’équipes, puis partage son lien avec la classe.</p></div>
+      {% endfor %}
+    </div>
+    <form method="post" action="{% url 'groupes:activity_create' classe.pk %}" class="card activity-create">
+      {% csrf_token %}<h2>Nouvelle activité</h2>
+      {% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}
+      <button class="btn" type="submit">Créer l’activité</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

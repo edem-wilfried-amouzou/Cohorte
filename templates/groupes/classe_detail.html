@@ -4,6 +4,14 @@
 <main class="container">
   {% include "partials/classe_head.html" %}
 
+  <section class="activity-overview">
+    <div class="row between"><div><p class="eyebrow">Organisation par projet</p><h2>Exposés et projets</h2></div><a class="btn" href="{% url 'groupes:activities' classe.pk %}">Gérer les activités</a></div>
+    <div class="activity-overview-list">
+      {% for activite in activites %}<a class="activity-overview-row" href="{% url 'groupes:activity_detail' classe.pk activite.pk %}"><span class="activity-mark">{% if activite.kind == 'presentation' %}EX{% elif activite.kind == 'project' %}PR{% else %}AC{% endif %}</span><span class="activity-info"><strong>{{ activite.title }}</strong><small>{{ activite.n_groupes }} groupes · {{ activite.n_reponses }} réponses</small></span><span aria-hidden="true">→</span></a>
+      {% empty %}<p class="muted activity-empty-line">Aucune activité créée. Chaque exposé ou projet aura ses propres groupes et son lien de participation.</p>{% endfor %}
+    </div>
+  </section>
+
   <div class="stats">
     <div class="stat"><b>{{ stats.total }}</b><span>Personnes</span></div>
     <div class="stat"><b>{{ stats.affectes }}</b><span>Avec un groupe</span></div>
@@ -50,18 +58,9 @@
 
     <div class="grid" style="align-content:start">
       <section class="card">
-        <h2>Lien à partager</h2>
-        {% if classe.accepting %}
-        <div class="share">
-          <div class="stack" style="--gap:0.6rem">
-            <div class="linkbox"><input id="share-url" type="text" readonly value="{{ public_url }}" aria-label="Lien public"><button class="btn ghost" type="button" data-copy="#share-url">Copier</button></div>
-            <p class="muted small">Envoie ce lien à ta classe. Chacun choisit son nom et son groupe.</p>
-          </div>
-          <img src="{% url 'groupes:qr' classe.pk %}" alt="QR code du lien public">
-        </div>
-        {% else %}
-        <p class="muted">Le lien est fermé{% if classe.deadline %} (date limite dépassée){% endif %}. <a href="{% url 'groupes:settings' classe.pk %}">Modifier dans les réglages</a>.</p>
-        {% endif %}
+        <div class="row between"><h2>Liens à partager</h2><a href="{% url 'groupes:activities' classe.pk %}" class="small">Gérer</a></div>
+        {% if activites %}<div class="activity-link-list">{% for activite in activites %}<a href="{% url 'groupes:activity_detail' classe.pk activite.pk %}"><span>{{ activite.title }}</span><small>{% if activite.accepting %}Lien ouvert{% else %}Lien fermé{% endif %} · {{ activite.n_groupes }} groupes</small></a>{% endfor %}</div>
+        {% else %}<p class="muted small">Crée un exposé ou un projet pour obtenir son formulaire et son lien de participation.</p><a class="btn small" href="{% url 'groupes:activities' classe.pk %}">Créer une activité</a>{% endif %}
       </section>
 
       <section class="card">
