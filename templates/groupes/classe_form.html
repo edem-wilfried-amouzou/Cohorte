@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{% if creating %}Nouvelle classe{% else %}Réglages{% endif %} - Cohorte{% endblock %}
+{% block content %}
+<main class="container {% if creating %}narrow{% endif %}">
+  {% if creating %}
+    {% include "partials/messages.html" %}
+    <div class="page-head"><div><h1>Nouvelle classe</h1><p>Tu pourras importer ta liste juste après.</p></div></div>
+  {% else %}
+    {% include "partials/classe_head.html" %}
+  {% endif %}
+  <form class="card {% if not creating %}stack{% endif %}" method="post" {% if not creating %}style="max-width:620px"{% endif %}>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
+    {% include "partials/field.html" with field=form.name %}
+    {% include "partials/field.html" with field=form.description %}
+    {% if not creating %}
+      {% include "partials/field.html" with field=form.is_open %}
+      {% include "partials/field.html" with field=form.deadline %}
+    {% endif %}
+    {% include "partials/field.html" with field=form.allow_unlisted %}
+    <div class="field"><button class="btn" type="submit">{% if creating %}Créer la classe{% else %}Enregistrer{% endif %}</button></div>
+  </form>
+
+  {% if not creating %}
+  <div class="grid two" style="margin-top:1.5rem;max-width:1000px">
+    <div class="card">
+      <h2>Changer le lien public</h2>
+      <p class="muted small" style="margin-bottom:1rem">Si le lien a circulé trop largement, crée-en un nouveau. L'ancien cessera de fonctionner.</p>
+      <form method="post" action="{% url 'groupes:regenerate' classe.pk %}" data-confirm="Créer un nouveau lien ? L'ancien ne fonctionnera plus.">{% csrf_token %}<button class="btn ghost" type="submit">Créer un nouveau lien</button></form>
+    </div>
+    <div class="card">
+      <h2>Supprimer la classe</h2>
+      <p class="muted small" style="margin-bottom:1rem">Efface la classe, ses groupes et sa liste. Action définitive.</p>
+      <form method="post" action="{% url 'groupes:delete' classe.pk %}" data-confirm="Supprimer définitivement « {{ classe.name }} » et toutes ses données ?">{% csrf_token %}<button class="btn danger" type="submit">Supprimer la classe</button></form>
+    </div>
+  </div>
+  {% endif %}
+</main>
+{% endblock %}

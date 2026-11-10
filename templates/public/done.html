@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Merci - {{ classe.name }}{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<main class="public">
+  <div class="public-card">
+    <div class="card" style="margin-top:2rem">
+      <div class="done-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></div>
+      <h1>Réponse enregistrée</h1>
+      {% if result %}
+        <p style="margin-top:0.75rem">Merci <strong>{{ result.name }}</strong>.
+        {% if result.group %}Tu es dans le <strong>{{ result.group }}</strong>.{% else %}Tu as indiqué que tu n'as pas de groupe. Ton délégué en tiendra compte.{% endif %}</p>
+        {% if result.pending %}<p class="muted small" style="margin-top:0.5rem">Ton nom n'était pas dans la liste : il sera vérifié par ton délégué.</p>{% endif %}
+      {% else %}
+        <p style="margin-top:0.75rem">Merci, ta réponse pour <strong>{{ classe.name }}</strong> est bien enregistrée.</p>
+      {% endif %}
+      <p class="muted small" style="margin-top:1rem">Une erreur ? Préviens ton délégué, il pourra corriger.</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

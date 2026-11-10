@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ classe.name }} - Lien fermé{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<main class="public">
+  <div class="public-card">
+    <div class="card" style="margin-top:2rem">
+      <h1>Ce lien n'accepte plus de réponses</h1>
+      <p style="margin-top:0.75rem">Les inscriptions pour <strong>{{ classe.name }}</strong> sont terminées. Contacte ton délégué pour être ajouté à un groupe.</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

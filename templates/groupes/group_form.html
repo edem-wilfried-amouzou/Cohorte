@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Modifier {{ group.short_label }} - Cohorte{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+  <form class="card" method="post" style="max-width:560px">
+    {% csrf_token %}
+    <h2>Modifier {{ group.short_label }}</h2>
+    {% include "partials/field.html" with field=form.number %}
+    {% include "partials/field.html" with field=form.name %}
+    {% include "partials/field.html" with field=form.capacity %}
+    <div class="row" style="margin-top:1.25rem">
+      <button class="btn" type="submit">Enregistrer</button>
+      <a class="btn ghost" href="{% url 'groupes:groups' classe.pk %}">Annuler</a>
+    </div>
+  </form>
+</main>
+{% endblock %}

@@ -1,0 +1,16 @@
+<div class="classe-head">
+  <p class="crumb"><a href="{% url 'groupes:dashboard' %}">Mes classes</a></p>
+  <div class="row between">
+    <h1>{{ classe.name }}</h1>
+    {% if classe.accepting %}<span class="badge affecte">Lien ouvert</span>{% else %}<span class="badge en_attente">Lien fermé</span>{% endif %}
+  </div>
+  {% if classe.description %}<p class="muted">{{ classe.description }}</p>{% endif %}
+</div>
+<nav class="tabs" aria-label="Sections de la classe">
+  <a href="{% url 'groupes:detail' classe.pk %}" {% if tab == "overview" %}aria-current="page"{% endif %}>Vue d'ensemble</a>
+  <a href="{% url 'groupes:members' classe.pk %}" {% if tab == "members" %}aria-current="page"{% endif %}>Personnes</a>
+  <a href="{% url 'groupes:groups' classe.pk %}" {% if tab == "groups" %}aria-current="page"{% endif %}>Groupes</a>
+  <a href="{% url 'groupes:import' classe.pk %}" {% if tab == "import" %}aria-current="page"{% endif %}>Importer une liste</a>
+  <a href="{% url 'groupes:settings' classe.pk %}" {% if tab == "settings" %}aria-current="page"{% endif %}>Réglages</a>
+</nav>
+{% include "partials/messages.html" %}

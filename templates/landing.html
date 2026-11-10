@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Cohorte : qui est dans quel groupe ?{% endblock %}
+{% block content %}
+<main>
+  <section class="hero">
+    <div>
+      <h1>Qui est dans quel groupe, et qui n'en a pas encore ?</h1>
+      <p class="lead">Importe la liste de ta classe, crée tes groupes et partage un lien. Chacun choisit son nom et son groupe en dix secondes. Tu vois tout de suite les absents et les personnes sans groupe.</p>
+      <div class="cta">
+        {% if user.is_authenticated %}
+          <a class="btn" href="{% url 'groupes:dashboard' %}">Ouvrir mes classes</a>
+        {% else %}
+          <a class="btn" href="{% url 'accounts:signup' %}">Créer mon espace</a>
+          <a class="btn ghost" href="{% url 'accounts:login' %}">J'ai déjà un compte</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="preview" aria-hidden="true">
+      <div class="col waiting"><div class="col-head"><h3>Sans groupe</h3><span class="count">2</span></div>
+        <div class="col-list"><div class="chip">Afi T.</div><div class="chip">Kodjo M.</div></div></div>
+      <div class="col"><div class="col-head"><h3>Groupe 1</h3><span class="count">3/4</span></div>
+        <div class="col-list"><div class="chip">Ama K.</div><div class="chip">Yao D.</div><div class="chip">Essi A.</div></div></div>
+      <div class="col"><div class="col-head"><h3>Groupe 2</h3><span class="count">2/4</span></div>
+        <div class="col-list"><div class="chip">Koffi A.</div><div class="chip">Mawuli S.</div></div></div>
+    </div>
+  </section>
+  <section class="features">
+    <div><h3>Un lien, toute la classe répond</h3><p>Chacun cherche son nom dans la liste, choisit son groupe ou « Pas de groupe ». Les noms hors liste peuvent être refusés ou marqués à vérifier.</p></div>
+    <div><h3>Les sans-groupe ressortent</h3><p>Une colonne à part pour ceux qui n'ont pas de groupe ou n'ont pas répondu. Glisse-les dans un groupe, ou laisse l'outil les répartir de façon équilibrée.</p></div>
+    <div><h3>Exports prêts à envoyer</h3><p>PDF, Excel, Word et CSV, avec le résumé par groupe, la liste complète et les sans-groupe.</p></div>
+  </section>
+</main>
+{% endblock %}

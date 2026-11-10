@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Personnes - {{ classe.name }} - Cohorte{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+
+  <details class="add card" {% if add_form.errors %}open{% endif %} style="margin-bottom:1rem">
+    <summary>Ajouter une personne à la main</summary>
+    <form method="post" class="stack" style="--gap:0.9rem">
+      {% csrf_token %}
+      <div class="inline-form">
+        {% include "partials/field.html" with field=add_form.full_name %}
+        {% include "partials/field.html" with field=add_form.reference %}
+        {% include "partials/field.html" with field=add_form.groupe %}
+        <button class="btn" type="submit">Ajouter</button>
+      </div>
+    </form>
+  </details>
+
+  <div class="row between" style="margin-bottom:0.9rem">
+    <nav class="filters" aria-label="Filtrer la liste">
+      <a href="?{% if q %}q={{ q|urlencode }}{% endif %}" {% if not f %}aria-current="true"{% endif %}>Tous ({{ stats.total }})</a>
+      <a href="?f=sans{% if q %}&q={{ q|urlencode }}{% endif %}" {% if f == "sans" %}aria-current="true"{% endif %}>Sans groupe ({{ stats.declares|add:stats.attente }})</a>
+      <a href="?f=attente{% if q %}&q={{ q|urlencode }}{% endif %}" {% if f == "attente" %}aria-current="true"{% endif %}>Pas répondu ({{ stats.attente }})</a>
+      <a href="?f=affectes{% if q %}&q={{ q|urlencode }}{% endif %}" {% if f == "affectes" %}aria-current="true"{% endif %}>Avec groupe ({{ stats.affectes }})</a>
+      {% if stats.a_verifier %}<a href="?f=verifier" {% if f == "verifier" %}aria-current="true"{% endif %}>À vérifier ({{ stats.a_verifier }})</a>{% endif %}
+    </nav>
+    <form method="get" style="min-width:240px;flex:0 1 300px">
+      <input type="hidden" name="f" value="{{ f }}">
+      <input type="search" name="q" value="{{ q }}" placeholder="Rechercher un nom" aria-label="Rechercher un nom"
+             hx-get="{% url 'groupes:members' classe.pk %}" hx-trigger="input changed delay:300ms, search" hx-include="closest form"
+             hx-target="#member-list" hx-select="#member-list" hx-swap="outerHTML" hx-push-url="true">
+    </form>
+  </div>
+
+  <div id="member-list" class="card flat">
+    {% if page.object_list %}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nom</th><th>Groupe</th><th>Statut</th><th></th></tr></thead>
+        <tbody>
+          {% for m in page.object_list %}{% include "groupes/_member_row.html" %}{% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if page.paginator.num_pages > 1 %}
+    <div class="pager">
+      {% if page.has_previous %}<a href="?{% if f %}f={{ f }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}page={{ page.previous_page_number }}">Précédent</a>{% endif %}
+      <span class="muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>
+      {% if page.has_next %}<a href="?{% if f %}f={{ f }}&{% endif %}{% if q %}q={{ q|urlencode }}&{% endif %}page={{ page.next_page_number }}">Suivant</a>{% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty" style="border:0">
+      {% if stats.total %}<h2>Personne ne correspond</h2><p>Essaie un autre filtre ou une autre recherche.</p>
+      {% else %}<h2>Ta liste est vide</h2><p>Importe la liste de ta salle ou ajoute des personnes à la main.</p><a class="btn" href="{% url 'groupes:import' classe.pk %}">Importer une liste</a>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+</main>
+{% endblock %}

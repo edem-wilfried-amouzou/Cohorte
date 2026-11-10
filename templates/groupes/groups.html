@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Groupes - {{ classe.name }} - Cohorte{% endblock %}
+{% block head %}<script src="{% static 'js/board.js' %}" defer></script>{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+
+  <div class="grid two" style="margin-bottom:1.25rem">
+    <form method="post" action="{% url 'groupes:group_create' classe.pk %}" class="card">
+      {% csrf_token %}
+      <h2>Ajouter un groupe</h2>
+      <div class="inline-form">
+        {% include "partials/field.html" with field=form.number %}
+        {% include "partials/field.html" with field=form.name %}
+        {% include "partials/field.html" with field=form.capacity %}
+        <button class="btn" type="submit">Créer</button>
+      </div>
+    </form>
+    <div class="card stack" style="--gap:1rem">
+      <form method="post" action="{% url 'groupes:groups_bulk' classe.pk %}">
+        {% csrf_token %}
+        <h2>Créer plusieurs groupes d'un coup</h2>
+        <div class="inline-form">
+          {% include "partials/field.html" with field=bulk.count %}
+          {% include "partials/field.html" with field=bulk.capacity %}
+          <button class="btn ghost" type="submit">Créer de 1 à N</button>
+        </div>
+      </form>
+      <form method="post" action="{% url 'groupes:auto_assign' classe.pk %}" data-confirm="Répartir toutes les personnes sans groupe de façon équilibrée ?">
+        {% csrf_token %}
+        <button class="btn ghost" type="submit">Répartir automatiquement les sans-groupe</button>
+      </form>
+    </div>
+  </div>
+
+  <p class="hint" style="margin-bottom:1rem">Glisse une personne d'une colonne à l'autre pour l'affecter. Sur téléphone, utilise l'onglet « Personnes ».</p>
+
+  <div id="board" class="board" data-csrf="{{ csrf_token }}" data-assign-url="{% url 'groupes:member_assign' classe.pk 0 %}">
+    <section class="col waiting" data-group-id="" aria-label="Sans groupe">
+      <div class="col-head"><h3>Sans groupe</h3><span class="count" data-count>{{ sans|length }}</span></div>
+      <div class="col-list">
+        <p class="col-empty" {% if sans %}hidden{% endif %}>Tout le monde a un groupe.</p>
+        {% for m in sans %}<div class="chip {% if not m.verified %}unverified{% endif %}" draggable="true" data-id="{{ m.pk }}" data-name="{{ m.search_name }}">{{ m.full_name }}</div>{% endfor %}
+      </div>
+    </section>
+    {% for g in columns %}
+    <section class="col" data-group-id="{{ g.pk }}" {% if g.capacity %}data-capacity="{{ g.capacity }}"{% endif %} aria-label="{{ g.label }}">
+      <div class="col-head"><h3>{{ g.short_label }}{% if g.name %} <span class="muted small">{{ g.name }}</span>{% endif %}</h3><span class="count {% if g.full %}full{% endif %}" data-count>{{ g.people|length }}{% if g.capacity %}/{{ g.capacity }}{% endif %}</span></div>
+      <div class="col-tools">
+        <a href="{% url 'groupes:group_edit' classe.pk g.pk %}">Modifier</a>
+        <form method="post" action="{% url 'groupes:group_delete' classe.pk g.pk %}" data-confirm="Supprimer {{ g.short_label }} ? Ses membres passeront en « Sans groupe ».">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer</button></form>
+      </div>
+      <div class="col-list">
+        <p class="col-empty" {% if g.people %}hidden{% endif %}>Dépose une personne ici.</p>
+        {% for m in g.people %}<div class="chip {% if not m.verified %}unverified{% endif %}" draggable="true" data-id="{{ m.pk }}" data-name="{{ m.search_name }}">{{ m.full_name }}</div>{% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+</main>
+{% endblock %}

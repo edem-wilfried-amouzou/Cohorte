@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Créer un compte - Cohorte{% endblock %}
+{% block content %}
+<main class="auth">
+  <h1>Créer mon espace</h1>
+  <p class="muted">Gratuit, en trente secondes.</p>
+  <form class="card" method="post">
+    {% csrf_token %}
+    {% include "partials/field.html" with field=form.username %}
+    {% include "partials/field.html" with field=form.password1 %}
+    {% include "partials/field.html" with field=form.password2 %}
+    <div class="field"><button class="btn block" type="submit">Créer mon compte</button></div>
+  </form>
+  <p class="muted small" style="margin-top:1rem">Déjà inscrit ? <a href="{% url 'accounts:login' %}">Se connecter</a></p>
+</main>
+{% endblock %}

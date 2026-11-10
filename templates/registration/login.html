@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Connexion - Cohorte{% endblock %}
+{% block content %}
+<main class="auth">
+  <h1>Se connecter</h1>
+  <p class="muted">Retrouve tes classes et tes groupes.</p>
+  <form class="card" method="post">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
+    {% include "partials/field.html" with field=form.username %}
+    {% include "partials/field.html" with field=form.password %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <div class="field"><button class="btn block" type="submit">Se connecter</button></div>
+  </form>
+  <p class="muted small" style="margin-top:1rem">Pas encore de compte ? <a href="{% url 'accounts:signup' %}">Créer mon espace</a></p>
+</main>
+{% endblock %}

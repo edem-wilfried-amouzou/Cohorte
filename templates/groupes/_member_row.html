@@ -1,0 +1,22 @@
+<tr id="m-{{ m.pk }}">
+  <td>
+    <strong>{{ m.full_name }}</strong>
+    {% if m.reference %}<div class="small muted">{{ m.reference }}</div>{% endif %}
+    {% if not m.verified %}
+      <div><span class="badge verifier">À vérifier</span>
+      <button class="linkbtn small" type="button" hx-post="{% url 'groupes:member_verify' classe.pk m.pk %}" hx-target="closest tr" hx-swap="outerHTML">Valider</button></div>
+    {% endif %}
+  </td>
+  <td>
+    <select name="groupe" aria-label="Groupe de {{ m.full_name }}" hx-post="{% url 'groupes:member_assign' classe.pk m.pk %}" hx-trigger="change" hx-target="closest tr" hx-swap="outerHTML">
+      <option value="">Sans groupe</option>
+      {% for g in groupes %}<option value="{{ g.pk }}" {% if g.pk == m.groupe_id %}selected{% elif g.full %}disabled{% endif %}>{{ g.label }}{% if g.full and g.pk != m.groupe_id %} (complet){% endif %}</option>{% endfor %}
+    </select>
+    {% if error %}<p class="row-error" role="alert">{{ error }}</p>{% endif %}
+  </td>
+  <td><span class="badge {{ m.status }}">{{ m.status_label }}</span></td>
+  <td class="actions">
+    <a class="small" href="{% url 'groupes:member_edit' classe.pk m.pk %}">Modifier</a>
+    <button class="linkbtn small danger" type="button" hx-post="{% url 'groupes:member_delete' classe.pk m.pk %}" hx-confirm="Retirer {{ m.full_name }} de la liste ?" hx-target="closest tr" hx-swap="outerHTML">Retirer</button>
+  </td>
+</tr>
