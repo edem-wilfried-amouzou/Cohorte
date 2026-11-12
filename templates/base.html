@@ -9,9 +9,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20261110-3">
+  <link rel="stylesheet" href="{% static 'css/ui.css' %}?v=1">
   <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
   <script src="{% static 'js/app.js' %}" defer></script>
+  <script src="{% static 'js/ui.js' %}" defer></script>
   {% block head %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
@@ -33,5 +35,15 @@
 </header>
 {% endblock %}
 {% block content %}{% endblock %}
+<dialog class="modal" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+  <form method="dialog" class="modal-form">
+    <div class="modal-head"><h2 id="confirm-title">Confirmer l'action</h2></div>
+    <p id="confirm-message"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button class="btn ghost" type="submit" value="cancel" id="confirm-cancel">Annuler</button>
+      <button class="btn" type="submit" value="ok" id="confirm-ok">Confirmer</button>
+    </div>
+  </form>
+</dialog>
 </body>
 </html>

@@ -3,17 +3,16 @@
 {% block content %}
 <main class="container">
   {% include "partials/classe_head.html" %}
-  <form class="card" method="post" style="max-width:560px">
+  {% if can_edit %}<form class="card" method="post" style="max-width:560px">
     {% csrf_token %}
     <h2>Modifier {{ member.full_name }}</h2>
-    {% include "partials/field.html" with field=form.full_name %}
-    {% include "partials/field.html" with field=form.reference %}
-    {% include "partials/field.html" with field=form.groupe %}
-    {% include "partials/field.html" with field=form.verified %}
+    {% for field in form %}
+      {% include "partials/field.html" with field=field %}
+    {% endfor %}
     <div class="row" style="margin-top:1.25rem">
       <button class="btn" type="submit">Enregistrer</button>
       <a class="btn ghost" href="{% url 'groupes:members' classe.pk %}">Annuler</a>
     </div>
-  </form>
+  </form>{% else %}<section class="card" style="max-width:560px"><h2>{{ member.full_name }}</h2><p class="muted">{% if member.sex %}{{ member.get_sex_display }} · {% endif %}{{ member.reference|default:"Aucun matricule" }}</p></section>{% endif %}
 </main>
 {% endblock %}

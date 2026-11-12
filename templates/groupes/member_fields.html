@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Champs personnalisés - {{ classe.name }} - Cohorte{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+
+  <section class="card" style="margin-top:1rem">
+    <h2>Ajouter un champ</h2>
+    <form method="post" class="stack" style="--gap:0.9rem">
+      {% csrf_token %}
+      <div class="inline-form">
+        {% include "partials/field.html" with field=form.key %}
+        {% include "partials/field.html" with field=form.label %}
+        {% include "partials/field.html" with field=form.kind %}
+      </div>
+      <div class="inline-form">
+        {% include "partials/field.html" with field=form.required %}
+        {% include "partials/field.html" with field=form.public %}
+        <button class="btn" type="submit">Ajouter</button>
+      </div>
+    </form>
+  </section>
+
+  {% if fields %}
+  <section class="card" style="margin-top:1rem">
+    <h2>Champs existants</h2>
+    <div class="stack" style="--gap:0.8rem">
+      {% for field in fields %}
+      <form method="post" class="row between" style="gap:0.75rem; align-items:center; border:1px solid var(--line); border-radius:12px; padding:0.75rem 0.9rem;">
+        {% csrf_token %}
+        <input type="hidden" name="field_id" value="{{ field.pk }}">
+        <input type="text" name="key" value="{{ field.key }}" aria-label="Code" style="max-width:140px;">
+        <input type="text" name="label" value="{{ field.label }}" aria-label="Libellé" style="min-width:220px; flex:1;">
+        <select name="kind" aria-label="Type">
+          {% for value, label in form.fields.kind.choices %}<option value="{{ value }}" {% if field.kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <label class="check"><input type="checkbox" name="required" {% if field.required %}checked{% endif %}> Obligatoire</label>
+        <label class="check"><input type="checkbox" name="public" {% if field.public %}checked{% endif %}> Public</label>
+        <button class="btn small" type="submit">Enregistrer</button>
+        <button class="btn ghost small" type="submit" name="delete_field" value="{{ field.pk }}">Supprimer</button>
+      </form>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

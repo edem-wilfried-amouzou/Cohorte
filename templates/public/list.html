@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% load filters %}
+{% block title %}Liste - {{ classe.name }}{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<main class="public">
+  <div class="public-card wide">
+    <header class="public-head">
+      <p class="brand">{% include "partials/logo.html" %}Cohorte</p>
+      <h1>{{ classe.name }}</h1>
+      <p>{% if editing %}La liste de la classe. Corrige tes informations ou ajoute ton nom si tu n'y es pas.{% else %}La liste de la classe, en lecture seule.{% endif %}</p>
+    </header>
+
+    {% include "partials/messages.html" %}
+
+    <form method="get" class="card list-toolbar">
+      <input type="search" name="q" value="{{ q }}" placeholder="Rechercher un nom ou une information" aria-label="Rechercher dans la liste">
+      <select name="sort" aria-label="Trier la liste">
+        <option value="list" {% if sort == 'list' %}selected{% endif %}>Ordre de la liste</option>
+        <option value="alpha" {% if sort == 'alpha' %}selected{% endif %}>Ordre alphabétique</option>
+        {% for field in custom_fields %}<option value="{{ field.key }}" {% if sort == field.key %}selected{% endif %}>{{ field.label }}</option>{% endfor %}
+      </select>
+      <button class="btn ghost" type="submit">Filtrer</button>
+      {% if editing %}<button class="btn" type="button" data-dialog-open="#add-dialog">Ajouter mon nom</button>{% endif %}
+    </form>
+
+    <div class="card flat">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {% if show_number %}<th>N°</th>{% endif %}
+              <th>Nom</th><th>Prénoms</th>
+              {% if show_sex %}<th>Sexe</th>{% endif %}
+              {% if show_reference %}<th>Matricule</th>{% endif %}
+              {% for field in custom_fields %}<th>{{ field.label }}</th>{% endfor %}
+              {% if editing %}<th></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for member in members %}
+            <tr>
+              {% if show_number %}<td>{{ member.number|default_if_none:"—" }}</td>{% endif %}
+              {% if member.last_name or member.first_name %}
+                <td><strong>{{ member.last_name|default:"—" }}</strong></td><td>{{ member.first_name|default:"—" }}</td>
+              {% else %}
+                <td><strong>{{ member.full_name }}</strong></td><td>—</td>
+              {% endif %}
+              {% if show_sex %}<td>{% if member.sex %}{{ member.get_sex_display }}{% else %}—{% endif %}</td>{% endif %}
+              {% if show_reference %}<td>{% if member.reference %}{{ member.reference }}{% else %}—{% endif %}</td>{% endif %}
+              {% for field in custom_fields %}<td>{{ member.custom_data|get_item:field.key|default:'—' }}</td>{% endfor %}
+              {% if editing %}
+              <td class="actions">
+                <button class="btn ghost small" type="button"
+                  data-edit-url="{% url 'groupes:public_member_edit' classe.token member.pk %}"
+                  data-name="{{ member.full_name }}" data-sex="{{ member.sex }}" data-reference="{{ member.reference }}"
+                  {% for field in custom_fields %}data-c-{{ field.key }}="{{ member.custom_data|get_item:field.key }}" {% endfor %}>Modifier</button>
+              </td>
+              {% endif %}
+            </tr>
+            {% empty %}
+            <tr><td colspan="12" class="muted">Aucune personne ne correspond à cette recherche.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="muted small" style="margin-top:0.9rem">{{ members|length }} personne{{ members|length|pluralize }}.</p>
+  </div>
+</main>
+
+{% if editing %}
+<dialog class="modal form-modal" id="edit-dialog" aria-labelledby="edit-title">
+  <form method="post" class="modal-form">
+    {% csrf_token %}
+    <div class="modal-head">
+      <div><h2 id="edit-title">Modifier mes informations</h2><p class="muted small" data-edit-name></p></div>
+      <button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button>
+    </div>
+    <div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <div class="modal-fields">{% for field in edit_form %}{% include "partials/field.html" with field=field %}{% endfor %}</div>
+    <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Enregistrer</button></div>
+  </form>
+</dialog>
+
+<dialog class="modal form-modal" id="add-dialog" aria-labelledby="add-title">
+  <form method="post" action="{% url 'groupes:public_member_add' classe.token %}" class="modal-form">
+    {% csrf_token %}
+    <div class="modal-head">
+      <div><h2 id="add-title">Ajouter mon nom</h2><p class="muted small">Ton nom sera vérifié par le délégué.</p></div>
+      <button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button>
+    </div>
+    <div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+    <div class="modal-fields">{% for field in add_form %}{% include "partials/field.html" with field=field %}{% endfor %}</div>
+    <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Ajouter</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

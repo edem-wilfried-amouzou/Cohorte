@@ -1,22 +1,25 @@
+{% load filters %}{% member_columns classe as cols %}{% custom_columns classe as fields %}
 <tr id="m-{{ m.pk }}">
+  {% if can_edit %}<td><input type="checkbox" name="member_ids" value="{{ m.pk }}" data-member-select aria-label="Sélectionner {{ m.full_name }}"></td>{% endif %}
+  {% if cols.number %}<td>{% if m.number %}{{ m.number }}{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
+  {% if m.last_name or m.first_name %}
+    <td><strong>{{ m.last_name|default:"—" }}</strong></td>
+    <td>{{ m.first_name|default:"—" }}</td>
+  {% else %}
+    <td><strong>{{ m.full_name }}</strong></td>
+    <td><span class="muted">—</span></td>
+  {% endif %}
+  {% if cols.sex %}<td>{% if m.sex %}{{ m.get_sex_display }}{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
+  {% if cols.reference %}<td>{% if m.reference %}{{ m.reference }}{% else %}<span class="muted">—</span>{% endif %}</td>{% endif %}
+  {% for field in fields %}<td>{{ m.custom_data|get_item:field.key|default:'—' }}</td>{% endfor %}
   <td>
-    <strong>{{ m.full_name }}</strong>
-    {% if m.reference %}<div class="small muted">{{ m.reference }}</div>{% endif %}
-    {% if not m.verified %}
-      <div><span class="badge verifier">À vérifier</span>
-      <button class="linkbtn small" type="button" hx-post="{% url 'groupes:member_verify' classe.pk m.pk %}" hx-target="closest tr" hx-swap="outerHTML">Valider</button></div>
+    {% if m.verified %}<span class="badge affecte">Vérifié</span>
+    {% else %}<span class="badge verifier">À vérifier</span>
+      {% if can_edit %}<button class="linkbtn small" type="button" hx-post="{% url 'groupes:member_verify' classe.pk m.pk %}" hx-target="closest tr" hx-swap="outerHTML">Valider</button>{% endif %}
     {% endif %}
   </td>
-  <td>
-    <select name="groupe" aria-label="Groupe de {{ m.full_name }}" hx-post="{% url 'groupes:member_assign' classe.pk m.pk %}" hx-trigger="change" hx-target="closest tr" hx-swap="outerHTML">
-      <option value="">Sans groupe</option>
-      {% for g in groupes %}<option value="{{ g.pk }}" {% if g.pk == m.groupe_id %}selected{% elif g.full %}disabled{% endif %}>{{ g.label }}{% if g.full and g.pk != m.groupe_id %} (complet){% endif %}</option>{% endfor %}
-    </select>
-    {% if error %}<p class="row-error" role="alert">{{ error }}</p>{% endif %}
-  </td>
-  <td><span class="badge {{ m.status }}">{{ m.status_label }}</span></td>
   <td class="actions">
-    <a class="small" href="{% url 'groupes:member_edit' classe.pk m.pk %}">Modifier</a>
-    <button class="linkbtn small danger" type="button" hx-post="{% url 'groupes:member_delete' classe.pk m.pk %}" hx-confirm="Retirer {{ m.full_name }} de la liste ?" hx-target="closest tr" hx-swap="outerHTML">Retirer</button>
+    {% if can_edit %}<a class="small" href="{% url 'groupes:member_edit' classe.pk m.pk %}">Modifier</a>
+    {% if can_delete %}<button class="linkbtn small danger" type="button" hx-post="{% url 'groupes:member_delete' classe.pk m.pk %}" hx-confirm="Retirer {{ m.full_name }} de la liste ?" hx-target="closest tr" hx-swap="outerHTML">Retirer</button>{% endif %}{% endif %}
   </td>
 </tr>

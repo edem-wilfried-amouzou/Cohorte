@@ -239,6 +239,10 @@ celerybeat.pid
 # Environments
 .env
 .venv
+db.sqlite3
+db.sqlite3-*
+staticfiles/
+media/
 env/
 venv/
 ENV/

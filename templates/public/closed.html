@@ -6,7 +6,7 @@
   <div class="public-card">
     <div class="card" style="margin-top:2rem">
       <h1>Ce lien n'accepte plus de réponses</h1>
-      <p style="margin-top:0.75rem">Les inscriptions pour <strong>{{ classe.name }}</strong> sont terminées. Contacte ton délégué pour être ajouté à un groupe.</p>
+      <p style="margin-top:0.75rem">Les inscriptions pour <strong>{% if activite %}{{ activite.title }}{% else %}{{ classe.name }}{% endif %}</strong> sont terminées. Contacte l’organisateur si tu dois encore rejoindre un groupe.</p>
     </div>
   </div>
 </main>

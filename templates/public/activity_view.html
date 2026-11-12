@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}{{ activite.title }} · {{ classe.name }}{% endblock %}
+{% block content %}
+<main class="container public-activity-view">
+  <header class="public-view-head">
+    <a class="brand" href="{% url 'landing' %}">{% include "partials/logo.html" %}Cohorte</a>
+    <p class="eyebrow">{{ classe.name }} · {{ activite.get_kind_display }}</p>
+    <h1>{{ activite.title }}</h1>
+    {% if activite.theme %}<p class="public-view-theme">{{ activite.theme }}</p>{% endif %}
+    <p class="muted">{{ total_members }} participant{{ total_members|pluralize }} · {{ groupes|length }} groupe{{ groupes|length|pluralize }}</p>
+  </header>
+  {% if selected_group %}<a class="public-back" href="{% url 'groupes:activity_public_view' activite.view_token %}">← Tous les groupes</a>{% endif %}
+  <section class="public-group-grid">
+    {% for groupe in groupes %}
+    <article class="public-group">
+      <header><span class="group-number">{{ groupe.number }}</span><div><h2>{{ groupe.name|default:groupe.short_label }}</h2>{% if groupe.theme %}<p>{{ groupe.theme }}</p>{% endif %}</div>{% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}</header>
+      <ul>{% for member in groupe.people %}<li>{{ member.full_name }}</li>{% empty %}<li class="muted">Aucun membre affecté pour le moment.</li>{% endfor %}</ul>
+    </article>
+    {% empty %}<div class="empty"><h2>Aucun groupe publié</h2><p>L’organisateur n’a pas encore créé de groupes pour cette activité.</p></div>{% endfor %}
+  </section>
+  <p class="public-view-foot">Consultation uniquement · Les changements sont gérés par l’organisateur.</p>
+</main>
+{% endblock %}

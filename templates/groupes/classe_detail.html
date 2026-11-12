@@ -5,7 +5,7 @@
   {% include "partials/classe_head.html" %}
 
   <section class="activity-overview">
-    <div class="row between"><div><p class="eyebrow">Organisation par projet</p><h2>Exposés et projets</h2></div><a class="btn" href="{% url 'groupes:activities' classe.pk %}">Gérer les activités</a></div>
+    <div class="row between"><div><p class="eyebrow">{{ role_label }} · organisation par projet</p><h2>Exposés et projets</h2></div><div class="row">{% if is_owner %}<a class="btn ghost" href="{% url 'groupes:collaborators' classe.pk %}">Gérer l’équipe</a>{% endif %}<a class="btn" href="{% url 'groupes:activities' classe.pk %}">Gérer les activités</a></div></div>
     <div class="activity-overview-list">
       {% for activite in activites %}<a class="activity-overview-row" href="{% url 'groupes:activity_detail' classe.pk activite.pk %}"><span class="activity-mark">{% if activite.kind == 'presentation' %}EX{% elif activite.kind == 'project' %}PR{% else %}AC{% endif %}</span><span class="activity-info"><strong>{{ activite.title }}</strong><small>{{ activite.n_groupes }} groupes · {{ activite.n_reponses }} réponses</small></span><span aria-hidden="true">→</span></a>
       {% empty %}<p class="muted activity-empty-line">Aucune activité créée. Chaque exposé ou projet aura ses propres groupes et son lien de participation.</p>{% endfor %}
@@ -14,49 +14,14 @@
 
   <div class="stats">
     <div class="stat"><b>{{ stats.total }}</b><span>Personnes</span></div>
-    <div class="stat"><b>{{ stats.affectes }}</b><span>Avec un groupe</span></div>
-    <div class="stat {% if stats.declares %}alert{% endif %}"><b>{{ stats.declares }}</b><span>Sans groupe (déclaré)</span></div>
-    <div class="stat"><b>{{ stats.attente }}</b><span>Pas encore répondu</span></div>
     {% if stats.a_verifier %}<div class="stat alert"><b>{{ stats.a_verifier }}</b><span>Noms à vérifier</span></div>{% endif %}
   </div>
 
   {% if not stats.total %}
-  <div class="hint" style="margin-top:1rem">Ta liste est vide. <a href="{% url 'groupes:import' classe.pk %}">Importe ta liste</a> ou <a href="{% url 'groupes:members' classe.pk %}">ajoute des personnes à la main</a>.</div>
-  {% elif not groupes %}
-  <div class="hint" style="margin-top:1rem">Aucun groupe pour l'instant. <a href="{% url 'groupes:groups' classe.pk %}">Crée tes groupes</a> avant de partager le lien.</div>
+  <div class="hint" style="margin-top:1rem">Ta liste est vide. Clique sur <a href="{% url 'groupes:members' classe.pk %}">Personnes</a> puis sur le bouton « Importer une liste » pour commencer.</div>
   {% endif %}
 
-  <div class="grid sidebar" style="margin-top:1.25rem">
-    <div class="grid" style="align-content:start">
-      <section class="card">
-        <div class="row between"><h2>Répartition</h2><a href="{% url 'groupes:groups' classe.pk %}" class="small">Ouvrir le tableau</a></div>
-        {% if groupes %}
-        <div class="table-wrap"><table>
-          <thead><tr><th>Groupe</th><th>Effectif</th><th style="width:35%"></th></tr></thead>
-          <tbody>
-          {% for g in groupes %}
-            <tr>
-              <td><strong>{{ g.short_label }}</strong>{% if g.name %} <span class="muted">{{ g.name }}</span>{% endif %}</td>
-              <td>{{ g.size }}{% if g.capacity %}/{{ g.capacity }}{% endif %}</td>
-              <td>{% if g.capacity %}<div class="bar {% if g.full %}full{% endif %}"><i style="width: {% widthratio g.size g.capacity 100 %}%"></i></div>{% endif %}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table></div>
-        {% else %}<p class="muted">Aucun groupe créé.</p>{% endif %}
-      </section>
-
-      {% if sans %}
-      <section class="card">
-        <div class="row between"><h2>Sans groupe</h2><a href="{% url 'groupes:members' classe.pk %}?f=sans" class="small">Tout voir et affecter</a></div>
-        <div class="row" style="gap:0.4rem">
-          {% for m in sans %}<span class="chip" style="cursor:default">{{ m.full_name }}</span>{% endfor %}
-        </div>
-      </section>
-      {% endif %}
-    </div>
-
-    <div class="grid" style="align-content:start">
+  <div class="grid two" style="margin-top:1.25rem">
       <section class="card">
         <div class="row between"><h2>Liens à partager</h2><a href="{% url 'groupes:activities' classe.pk %}" class="small">Gérer</a></div>
         {% if activites %}<div class="activity-link-list">{% for activite in activites %}<a href="{% url 'groupes:activity_detail' classe.pk activite.pk %}"><span>{{ activite.title }}</span><small>{% if activite.accepting %}Lien ouvert{% else %}Lien fermé{% endif %} · {{ activite.n_groupes }} groupes</small></a>{% endfor %}</div>
@@ -64,16 +29,13 @@
       </section>
 
       <section class="card">
-        <h2>Exporter</h2>
-        <div class="row">
-          <a class="btn ghost small" href="{% url 'groupes:export' classe.pk 'pdf' %}">PDF</a>
-          <a class="btn ghost small" href="{% url 'groupes:export' classe.pk 'xlsx' %}">Excel</a>
-          <a class="btn ghost small" href="{% url 'groupes:export' classe.pk 'docx' %}">Word</a>
-          <a class="btn ghost small" href="{% url 'groupes:export' classe.pk 'csv' %}">CSV</a>
+        <div class="row between"><h2>Annuaire</h2><a class="small" href="{% url 'groupes:members' classe.pk %}">Gérer les membres</a></div>
+        <p class="muted small">La liste de classe est partagée entre les activités. Les affectations et les exports se gèrent depuis chaque exposé ou projet.</p>
+        <div class="row" style="margin-top:0.8rem; gap:0.5rem; flex-wrap:wrap">
+          <a class="btn small" href="{% url 'groupes:public_members' classe.token %}">Ouvrir la liste partagée</a>
+          <a class="btn ghost small" href="{% url 'groupes:members' classe.pk %}">Gérer la liste</a>
         </div>
-        <p class="muted small" style="margin-top:0.75rem">Résumé par groupe, liste complète et sans-groupe.</p>
       </section>
-    </div>
   </div>
 </main>
 {% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Équipe · {{ classe.name }}{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+  <div class="page-head"><div><p class="eyebrow">Accès partagé</p><h2>Équipe de la classe</h2><p>Ajoute uniquement des personnes qui ont déjà un compte Cohorte.</p></div></div>
+  <div class="team-layout">
+    <form method="post" class="card team-invite">
+      {% csrf_token %}<h3>Ajouter un collaborateur</h3>
+      {% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}
+      <button class="btn" type="submit">Ajouter à l’équipe</button>
+      <p class="muted small">La personne retrouvera cette classe dans son tableau de bord dès sa prochaine connexion.</p>
+    </form>
+    <section class="card team-list"><h3>Accès actuels</h3>
+      <div class="table-wrap"><table><thead><tr><th>Compte</th><th>Rôle</th><th></th></tr></thead><tbody>
+        <tr><td><strong>{{ classe.owner.get_full_name|default:classe.owner.username }}</strong><div class="small muted">Propriétaire</div></td><td>Accès complet</td><td></td></tr>
+        {% for collaboration in collaborateurs %}<tr><td><strong>{{ collaboration.user.get_full_name|default:collaboration.user.username }}</strong><div class="small muted">{{ collaboration.user.email }}</div></td><td>{{ collaboration.get_role_display }}</td><td class="actions"><form method="post" action="{% url 'groupes:collaborator_remove' classe.pk collaboration.pk %}" data-confirm="Retirer l’accès de ce compte ?">{% csrf_token %}<button class="linkbtn danger" type="submit">Retirer</button></form></td></tr>
+        {% empty %}<tr><td colspan="3" class="muted">Aucun collaborateur pour le moment.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+  </div>
+</main>
+{% endblock %}

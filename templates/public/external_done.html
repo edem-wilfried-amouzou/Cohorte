@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Merci - {{ classe.name }}{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<main class="public">
+  <div class="public-card">
+    <div class="card" style="margin-top:2rem">
+      <div class="done-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></div>
+      <h1>Demande enregistrée</h1>
+      {% if result %}
+      <p style="margin-top:0.75rem">Merci <strong>{{ result.name }}</strong>. Ta demande est bien reçue et sera examinée par le délégué.</p>
+      {% else %}
+      <p style="margin-top:0.75rem">Merci, votre demande a bien été enregistrée.</p>
+      {% endif %}
+      <p class="muted small" style="margin-top:1rem">Tu seras ajouté à la liste seulement après validation.</p>
+    </div>
+  </div>
+</main>
+{% endblock %}

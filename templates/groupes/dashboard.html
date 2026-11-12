@@ -13,10 +13,9 @@
     <a class="classe-card" href="{% url 'groupes:detail' c.pk %}">
       <div>
         <h3>{{ c.name }}</h3>
-        <p class="muted small">{{ c.n_membres }} membre{{ c.n_membres|pluralize }} · {{ c.n_activites }} activité{{ c.n_activites|pluralize }}{% if c.n_groupes %} · {{ c.n_groupes }} groupe{{ c.n_groupes|pluralize }} historique{{ c.n_groupes|pluralize }}{% endif %}</p>
+        <p class="muted small">{{ c.n_membres }} membre{{ c.n_membres|pluralize }} · {{ c.n_activites }} activité{{ c.n_activites|pluralize }} · {% if c.access_role == "owner" %}Propriétaire{% elif c.access_role == "co_delegate" %}Co-délégué{% elif c.access_role == "secretary" %}Secrétaire{% else %}Lecteur{% endif %}</p>
       </div>
-      <div>{% if c.n_sans %}<span class="badge sans_groupe">{{ c.n_sans }} sans groupe</span>{% elif c.n_membres %}<span class="badge affecte">Tout le monde a un groupe</span>{% else %}<span class="badge en_attente">Liste vide</span>{% endif %}</div>
-      <div class="bar {% if c.pct == 100 %}full{% endif %}" role="img" aria-label="{{ c.pct }} % de personnes affectées"><i style="width: {{ c.pct }}%"></i></div>
+      <span class="activity-open-link">Ouvrir la classe <span aria-hidden="true">→</span></span>
     </a>
     {% endfor %}
   </div>

@@ -20,11 +20,11 @@
       <div class="empty activity-empty"><h2>Aucun exposé ou projet pour l’instant</h2><p>Crée une activité, définis le nombre d’équipes, puis partage son lien avec la classe.</p></div>
       {% endfor %}
     </div>
-    <form method="post" action="{% url 'groupes:activity_create' classe.pk %}" class="card activity-create">
+    {% if can_edit %}<form method="post" action="{% url 'groupes:activity_create' classe.pk %}" class="card activity-create">
       {% csrf_token %}<h2>Nouvelle activité</h2>
       {% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}
       <button class="btn" type="submit">Créer l’activité</button>
-    </form>
+    </form>{% endif %}
   </section>
 </main>
 {% endblock %}
