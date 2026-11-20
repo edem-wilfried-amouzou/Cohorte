@@ -14,7 +14,7 @@
     </div>
     <div class="share-actions">
       <div class="linkbox"><input id="list-link" type="text" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'groupes:public_members' classe.token %}" aria-label="Lien de la liste"><button class="btn" type="button" data-copy="#list-link">Copier</button></div>
-      <p class="share-status {% if classe.external_intake_open %}on{% endif %}"><span class="dot" aria-hidden="true"></span>{% if classe.external_intake_open %}Modification ouverte{% else %}Lecture seule{% endif %}{% if request.class_role == "owner" %} <a href="{% url 'groupes:settings' classe.pk %}">Changer</a>{% endif %}</p>
+      <p class="share-status {% if classe.external_intake_open %}on{% endif %}"><span class="dot" aria-hidden="true"></span>{% if classe.external_intake_open %}Modification ouverte{% else %}Lecture seule{% endif %}{% if request.class_role == "owner" %} <a href="{% url 'groupes:settings' classe.pk %}">Changer</a>{% endif %} · <a href="{% url 'groupes:poster' classe.pk %}">Affiche QR</a></p>
     </div>
   </section>
   {% endif %}

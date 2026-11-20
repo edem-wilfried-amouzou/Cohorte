@@ -1,0 +1,77 @@
+/* Mode sombre + accessibilité + impression. Chargé après app.css et ui.css. */
+.skip-link { position: absolute; left: 0.5rem; top: -4rem; z-index: 100; background: var(--ink); color: var(--surface); padding: 0.6rem 1rem; border-radius: 0 0 var(--r) var(--r); text-decoration: none; font-weight: 600; }
+.skip-link:focus { top: 0; }
+.theme-toggle { border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); width: 2.2rem; height: 2.2rem; border-radius: 999px; cursor: pointer; font-size: 1.05rem; line-height: 1; }
+.theme-toggle:hover { border-color: var(--terra-500); color: var(--terra-700); }
+:focus-visible { outline: 3px solid var(--terra-600); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; } }
+
+:root[data-theme="dark"] {
+  --terra-700: #f0a07f; --terra-600: #c9643d; --terra-500: #dc7952;
+  --terra-200: #5a3426; --terra-100: #3a2419; --terra-50: #2b1d16;
+  --ink: #f1ede8; --ink-2: #cfc9c1; --ink-3: #a39d95;
+  --line: #3a3733; --bg: #171513; --surface: #211e1b;
+  --sage: #7fd0a5; --sage-bg: #1d3328; --amber: #f0c36a; --amber-bg: #3a2c10;
+  --red: #f19a92; --red-bg: #3d1f1c;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --terra-700: #f0a07f; --terra-600: #c9643d; --terra-500: #dc7952;
+    --terra-200: #5a3426; --terra-100: #3a2419; --terra-50: #2b1d16;
+    --ink: #f1ede8; --ink-2: #cfc9c1; --ink-3: #a39d95;
+    --line: #3a3733; --bg: #171513; --surface: #211e1b;
+    --sage: #7fd0a5; --sage-bg: #1d3328; --amber: #f0c36a; --amber-bg: #3a2c10;
+    --red: #f19a92; --red-bg: #3d1f1c;
+    color-scheme: dark;
+  }
+}
+/* Surfaces écrites en dur dans app.css / ui.css */
+:root[data-theme="dark"] .import-tabs, :root[data-theme="dark"] .import-columns li, :root[data-theme="dark"] .badge.en_attente,
+:root[data-theme="dark"] .bar, :root[data-theme="dark"] .col, :root[data-theme="dark"] .group-number, :root[data-theme="dark"] .preview,
+:root[data-theme="dark"] .pick input:disabled + span { background: #2c2925; color: var(--ink-2); }
+:root[data-theme="dark"] th, :root[data-theme="dark"] .bulk-toolbar { background: #26231f; }
+:root[data-theme="dark"] .chip, :root[data-theme="dark"] .combo-list, :root[data-theme="dark"] .pick span, :root[data-theme="dark"] .import-tabs button.is-active { background: var(--surface); color: var(--ink); }
+:root[data-theme="dark"] .dropzone { background: var(--terra-50); border-color: #4a443d; }
+:root[data-theme="dark"] td { border-bottom-color: var(--line); }
+:root[data-theme="dark"] .msg.success { color: var(--sage); border-color: #2c4d3b; }
+:root[data-theme="dark"] .msg.error { border-color: #5c2f2a; }
+:root[data-theme="dark"] .msg.warning { border-color: #5a4518; }
+:root[data-theme="dark"] .toast { background: var(--ink); color: var(--bg); }
+:root[data-theme="dark"] .share-card, :root[data-theme="dark"] .activity-overview { background: var(--surface); border-color: var(--line); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .import-tabs, :root:not([data-theme="light"]) .import-columns li, :root:not([data-theme="light"]) .badge.en_attente,
+  :root:not([data-theme="light"]) .bar, :root:not([data-theme="light"]) .col, :root:not([data-theme="light"]) .group-number, :root:not([data-theme="light"]) .preview,
+  :root:not([data-theme="light"]) .pick input:disabled + span { background: #2c2925; color: var(--ink-2); }
+  :root:not([data-theme="light"]) th, :root:not([data-theme="light"]) .bulk-toolbar { background: #26231f; }
+  :root:not([data-theme="light"]) .chip, :root:not([data-theme="light"]) .combo-list, :root:not([data-theme="light"]) .pick span, :root:not([data-theme="light"]) .import-tabs button.is-active { background: var(--surface); color: var(--ink); }
+  :root:not([data-theme="light"]) .dropzone { background: var(--terra-50); border-color: #4a443d; }
+  :root:not([data-theme="light"]) td { border-bottom-color: var(--line); }
+  :root:not([data-theme="light"]) .msg.success { color: var(--sage); border-color: #2c4d3b; }
+  :root:not([data-theme="light"]) .msg.error { border-color: #5c2f2a; }
+  :root:not([data-theme="light"]) .msg.warning { border-color: #5a4518; }
+  :root:not([data-theme="light"]) .toast { background: var(--ink); color: var(--bg); }
+  :root:not([data-theme="light"]) .share-card, :root:not([data-theme="light"]) .activity-overview { background: var(--surface); border-color: var(--line); }
+}
+/* Le QR code reste sur fond blanc pour rester lisible */
+.share img, .activity-qr, .qr-print img { background: #fff; }
+
+/* Commentaires et chef de groupe */
+.comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.comment { border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); padding: 0.7rem 0.9rem; }
+.comment header { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-3); }
+.comment p { margin-top: 0.3rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.badge.leader { background: var(--amber-bg); color: var(--amber); }
+.announce { border: 1px solid var(--terra-200); background: var(--terra-50); border-radius: var(--r); padding: 0.7rem 0.9rem; }
+
+/* Affiche QR imprimable */
+.qr-print { max-width: 21cm; margin: 0 auto; text-align: center; padding: 2rem 1rem; }
+.qr-print h1 { font-size: 2.4rem; }
+.qr-print img { width: min(70vw, 12cm); height: auto; margin: 1.5rem auto; padding: 0.8cm; border: 2px solid var(--ink); border-radius: 18px; display: block; }
+.qr-print .url { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 1.05rem; overflow-wrap: anywhere; }
+@media print {
+  .nav, .no-print, .toast, dialog, .skip-link { display: none !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .qr-print { padding: 0; }
+  @page { size: A4; margin: 1.5cm; }
+}

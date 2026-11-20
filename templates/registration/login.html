@@ -12,6 +12,7 @@
     <input type="hidden" name="next" value="{{ next }}">
     <div class="field"><button class="btn block" type="submit">Se connecter</button></div>
   </form>
-  <p class="muted small" style="margin-top:1rem">Pas encore de compte ? <a href="{% url 'accounts:signup' %}">Créer mon espace</a></p>
+  <p class="muted small" style="margin-top:1rem"><a href="{% url 'accounts:password_reset' %}">Mot de passe oublié ?</a></p>
+  <p class="muted small" style="margin-top:.5rem">Pas encore de compte ? <a href="{% url 'accounts:signup' %}">Créer mon espace</a></p>
 </main>
 {% endblock %}

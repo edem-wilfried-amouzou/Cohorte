@@ -3,13 +3,13 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
-from .models import Activite, ChampMembre, Classe, Collaborateur, Groupe, Membre, compose_full_name, normalize
+from .models import Activite, ChampMembre, Classe, Collaborateur, Commentaire, Groupe, Membre, compose_full_name
 
 
 class ClasseForm(forms.ModelForm):
     class Meta:
         model = Classe
-        fields = ["name", "description", "allow_unlisted", "external_intake_open"]
+        fields = ["name", "description", "allow_unlisted", "external_intake_open", "public_show_reference"]
         widgets = {
             "deadline": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
         }
@@ -229,3 +229,10 @@ class ImportForm(forms.Form):
         if not data.get("file") and not (data.get("text") or "").strip():
             raise forms.ValidationError("Choisis un fichier ou colle une liste de noms.")
         return data
+
+class CommentaireForm(forms.ModelForm):
+    class Meta:
+        model = Commentaire
+        fields = ["body", "is_public"]
+        labels = {"body": "Commentaire"}
+        widgets = {"body": forms.Textarea(attrs={"rows": 3, "maxlength": 1000, "placeholder": "Consignes, rappel, changement de salle…"})}

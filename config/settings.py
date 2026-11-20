@@ -40,16 +40,19 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY est obligatoire quand DJANGO_DEBUG=0.")
 
 render_hostname = os.environ.get("RENDER_EXTERNAL_HOSTNAME", "").strip()
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1")
 if render_hostname and render_hostname not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append(render_hostname)
-CSRF_TRUSTED_ORIGINS = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 if render_hostname and f"https://{render_hostname}" not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(f"https://{render_hostname}")
 
 
+# URL de l'admin configurable (évite /admin/ par défaut). Ex : DJANGO_ADMIN_URL=gestion-x7k
+ADMIN_URL = os.environ.get("DJANGO_ADMIN_URL", "admin").strip("/") + "/"
 
-
+# Code d'invitation facultatif : si défini, l'inscription le demande.
+SIGNUP_INVITE_CODE = os.environ.get("SIGNUP_INVITE_CODE", "").strip()
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -145,6 +148,31 @@ STORAGES = {
     },
 }
 
+# Cache partagé entre workers (limiteur de requêtes). Table créée par `manage.py createcachetable`.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    }
+}
+
+# Nombre de proxys de confiance devant l'app (Render = 1). 0 = utiliser REMOTE_ADDR.
+TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "1" if os.environ.get("DJANGO_BEHIND_PROXY") == "1" else "0"))
+
+# E-mail (réinitialisation du mot de passe). Sans EMAIL_HOST : affichage console.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+if EMAIL_HOST:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "465"))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", True)
+    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", False)
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Cohorte <contact@django-admin.com>")
+PASSWORD_RESET_TIMEOUT = 60 * 60  # 1 h
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 LOGIN_URL = "accounts:login"
@@ -157,7 +185,7 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 3 * 1024 * 1024
 
 # --- Sécurité -------------------------------------------------------------
 
-if os.environ.get("DJANGO_BEHIND_PROXY"):
+if os.environ.get("DJANGO_BEHIND_PROXY") == "1":
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 if not DEBUG:
@@ -172,6 +200,8 @@ if not DEBUG:
 X_FRAME_OPTIONS = "SAMEORIGIN"  # l'aperçu des fichiers utilise une iframe de même origine
 SECURE_REFERRER_POLICY = "same-origin"
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 7 jours
+SESSION_SAVE_EVERY_REQUEST = False
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
@@ -181,3 +211,17 @@ LOGGING = {
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "loggers": {"django.security": {"handlers": ["console"], "level": "WARNING"}},
 }
+
+
+# --- Supervision (facultatif) ---------------------------------------------
+SENTRY_DSN = os.environ.get("SENTRY_DSN", "").strip()
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+
+        sentry_sdk.init(dsn=SENTRY_DSN, send_default_pii=False, traces_sample_rate=0.0)
+    except ImportError:  # dépendance absente : on ignore
+        pass
+
+# Type MIME du manifeste PWA (sinon servi en application/octet-stream)
+WHITENOISE_MIMETYPES = {".webmanifest": "application/manifest+json"}

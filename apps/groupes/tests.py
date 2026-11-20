@@ -217,11 +217,11 @@ class OwnerActionsTests(Base):
 
     def test_add_member_manually_and_duplicate(self):
         url = reverse("groupes:members", args=[self.classe.pk])
-        self.client.post(url, {"full_name": "Nouveau Venu", "sex": "F", "reference": "A23", "verified": "on"})
-        member = Membre.objects.get(full_name="Nouveau Venu")
+        self.client.post(url, {"last_name": "VENU", "first_name": "Nouveau", "sex": "F", "reference": "A23", "verified": "on"})
+        member = Membre.objects.get(full_name="Nouveau VENU")
         self.assertIsNone(member.groupe)
         self.assertEqual((member.sex, member.reference), ("F", "A23"))
-        r = self.client.post(url, {"full_name": "nouveau venu"})
+        r = self.client.post(url, {"last_name": "venu", "first_name": "nouveau"})
         self.assertContains(r, "déjà dans la liste")
 
     def test_bulk_groups(self):
@@ -231,7 +231,7 @@ class OwnerActionsTests(Base):
     def test_exports(self):
         self.ama.groupe = self.g1
         self.ama.save()
-        self.yao.full_name = "=CMD()"
+        self.yao.first_name, self.yao.last_name = "=CMD()", ""
         self.yao.save()
         expectations = {"pdf": b"%PDF", "xlsx": b"PK", "docx": b"PK", "csv": b"\xef\xbb\xbfGroupe"}
         for fmt, magic in expectations.items():
@@ -413,7 +413,7 @@ class OwnerActionsTests(Base):
             self.assertEqual(response.status_code, 200, fmt)
             self.assertTrue(response.content.startswith(magic), fmt)
             if fmt == "csv":
-                self.assertIn(b"AMEGAH Kossi", response.content)
+                self.assertIn(b"AMEGAH;Kossi", response.content)
 
     def test_class_export_summarizes_all_activities_and_pending_members(self):
         activity = Activite.objects.create(classe=self.classe, title="Projet énergie")
@@ -424,7 +424,7 @@ class OwnerActionsTests(Base):
         ).content.decode("utf-8-sig")
         self.assertIn("Projet énergie · Groupe 1", csv_text)
         self.assertIn("Solaire", csv_text)
-        self.assertIn("Éric Yao", csv_text)
+        self.assertIn("Yao;Éric", csv_text)
         self.assertIn("Pas encore répondu", csv_text)
 
     def test_public_activity_view_is_read_only_and_revocable(self):
@@ -434,7 +434,7 @@ class OwnerActionsTests(Base):
         url = reverse("groupes:activity_public_view", args=[activity.view_token])
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "AMEGAH Kossi")
+        self.assertContains(response, "Kossi AMEGAH")
         self.assertContains(response, "Énergie")
         group_url = reverse("groupes:activity_public_group_view", args=[activity.view_token, group.pk])
         self.assertEqual(self.client.get(group_url).status_code, 200)

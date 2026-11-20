@@ -10,7 +10,7 @@ from django.db.models import F
 from django.utils import timezone
 from django.utils.text import slugify
 
-from ..models import Membre, Participation
+from ..models import Membre
 
 TERRA = "B4532F"
 INK = "1C1F23"

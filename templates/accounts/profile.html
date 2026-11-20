@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Mon compte - Cohorte{% endblock %}
+{% block content %}
+<main class="container narrow stack">
+  <h1>Mon compte</h1>
+  {% include "partials/messages.html" %}
+  <form class="card" method="post">
+    {% csrf_token %}
+    <h2>Informations</h2>
+    <p class="muted small">Nom d'utilisateur : <strong>{{ user.username }}</strong></p>
+    {% include "partials/field.html" with field=form.email %}
+    <div class="field"><button class="btn" type="submit">Enregistrer</button></div>
+  </form>
+  <section class="card">
+    <h2>Mes données</h2>
+    <p class="muted small">Télécharge une copie de tes classes, personnes et activités au format JSON.</p>
+    <p style="margin-top:.8rem"><a class="btn ghost" href="{% url 'accounts:export_data' %}">Exporter mes données</a></p>
+  </section>
+  <form class="card" method="post" action="{% url 'accounts:delete_account' %}" data-confirm="Supprimer définitivement ton compte et toutes tes classes ?">
+    {% csrf_token %}
+    <h2>Supprimer mon compte</h2>
+    <p class="muted small">Action définitive : ton compte et les {{ owned }} classe(s) dont tu es propriétaire seront supprimés.</p>
+    {% include "partials/field.html" with field=delete_form.password %}
+    <div class="field"><button class="btn danger" type="submit">Supprimer définitivement</button></div>
+  </form>
+</main>
+{% endblock %}

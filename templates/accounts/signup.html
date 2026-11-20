@@ -6,7 +6,10 @@
   <p class="muted">Gratuit, en trente secondes.</p>
   <form class="card" method="post">
     {% csrf_token %}
+    {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
     {% include "partials/field.html" with field=form.username %}
+    {% include "partials/field.html" with field=form.email %}
+    {% if form.invite_code %}{% include "partials/field.html" with field=form.invite_code %}{% endif %}
     {% include "partials/field.html" with field=form.password1 %}
     {% include "partials/field.html" with field=form.password2 %}
     <div class="field"><button class="btn block" type="submit">Créer mon compte</button></div>

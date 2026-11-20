@@ -32,7 +32,7 @@
         {% for groupe in groupes %}
         <article class="activity-group">
           <header><span class="group-number">{{ groupe.number }}</span><div><h3>{{ groupe.name|default:groupe.short_label }}</h3><p>{% if groupe.theme %}{{ groupe.theme }} · {% endif %}{{ groupe.size }} membre{{ groupe.size|pluralize }}{% if groupe.capacity %} / {{ groupe.capacity }}{% endif %}</p></div>{% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}</header>
-          <ul>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<li>{{ participation.membre.full_name }}</li>{% endif %}{% endfor %}</ul>
+          <ul>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<li>{{ participation.membre.full_name }}{% if participation.membre.pk == groupe.leader_id %} <span class="badge leader">Chef</span>{% endif %}</li>{% endif %}{% endfor %}</ul>
           {% if activite.is_public %}<a class="small group-public-link" href="{% url 'groupes:activity_public_group_view' activite.view_token groupe.pk %}" target="_blank" rel="noopener">Lien de consultation du groupe ↗</a>{% endif %}
           {% if can_edit %}<details class="group-edit"><summary>Modifier</summary><form method="post" action="{% url 'groupes:activity_group_edit' classe.pk activite.pk groupe.pk %}" class="stack">
             {% csrf_token %}<div class="field"><label for="group-number-{{ groupe.pk }}">Numéro</label><input id="group-number-{{ groupe.pk }}" name="number" type="number" min="1" max="500" value="{{ groupe.number }}" required></div>
@@ -40,6 +40,8 @@
             <div class="field"><label for="group-theme-{{ groupe.pk }}">Thème</label><input id="group-theme-{{ groupe.pk }}" name="theme" value="{{ groupe.theme }}" maxlength="180"></div>
             <div class="inline-form"><div class="field"><label for="group-capacity-{{ groupe.pk }}">Capacité</label><input id="group-capacity-{{ groupe.pk }}" name="capacity" type="number" min="1" value="{{ groupe.capacity|default_if_none:'' }}"></div><div class="field"><label for="group-order-{{ groupe.pk }}">Ordre de passage</label><input id="group-order-{{ groupe.pk }}" name="presentation_order" type="number" min="1" value="{{ groupe.presentation_order|default_if_none:'' }}"></div></div>
             <button class="btn ghost small" type="submit">Enregistrer</button>
+          </form><form method="post" action="{% url 'groupes:activity_group_leader' classe.pk activite.pk groupe.pk %}" class="stack">
+            {% csrf_token %}<div class="field"><label for="group-leader-{{ groupe.pk }}">Chef de groupe</label><select id="group-leader-{{ groupe.pk }}" name="leader"><option value="">Aucun</option>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<option value="{{ participation.membre.pk }}" {% if participation.membre.pk == groupe.leader_id %}selected{% endif %}>{{ participation.membre.full_name }}</option>{% endif %}{% endfor %}</select></div><button class="btn ghost small" type="submit">Désigner</button>
           </form><form method="post" action="{% url 'groupes:activity_group_delete' classe.pk activite.pk groupe.pk %}" data-confirm="Supprimer ce groupe ? Ses participations resteront sans groupe.">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer le groupe</button></form></details>{% endif %}
         </article>
         {% empty %}<div class="empty"><p>Crée un groupe ou une série de groupes pour commencer.</p></div>{% endfor %}
@@ -75,6 +77,18 @@
       {% if can_edit %}<details class="card activity-settings"><summary>Réglages de l’activité</summary><form method="post" action="{% url 'groupes:activity_update' classe.pk activite.pk %}" class="stack">
         {% csrf_token %}{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}<button class="btn ghost" type="submit">Enregistrer</button>
       </form></details>{% endif %}
+      <section class="card stack" aria-labelledby="comments-title">
+        <h3 id="comments-title">Commentaires</h3>
+        {% if can_edit %}<form method="post" action="{% url 'groupes:comment_add' classe.pk activite.pk %}" class="stack">
+          {% csrf_token %}{% include "partials/field.html" with field=comment_form.body %}{% include "partials/field.html" with field=comment_form.is_public %}<button class="btn ghost small" type="submit">Publier</button>
+        </form>{% endif %}
+        <ul class="comment-list">
+          {% for note in commentaires %}<li class="comment"><header><strong>{{ note.author.username|default:"Ancien membre" }}</strong><span>{{ note.created_at|date:"d/m/Y H:i" }}</span>{% if note.is_public %}<span class="badge">Public</span>{% endif %}</header><p>{{ note.body }}</p>
+            {% if can_edit %}<form method="post" action="{% url 'groupes:comment_delete' classe.pk activite.pk note.pk %}" data-confirm="Supprimer ce commentaire ?">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer</button></form>{% endif %}</li>
+          {% empty %}<li class="muted small">Aucun commentaire pour le moment.</li>{% endfor %}
+        </ul>
+      </section>
+      <a class="btn ghost" href="{% url 'groupes:activity_poster' classe.pk activite.pk %}">Affiche QR à imprimer</a>
       <a class="btn ghost activity-back" href="{% url 'groupes:activities' classe.pk %}">← Toutes les activités</a>
     </aside>
   </div>

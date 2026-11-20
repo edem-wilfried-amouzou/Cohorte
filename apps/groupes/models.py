@@ -45,7 +45,7 @@ def name_key(value: str) -> str:
 
 
 def new_token() -> str:
-    return secrets.token_urlsafe(9)
+    return secrets.token_urlsafe(16)
 
 
 class Classe(models.Model):
@@ -63,6 +63,10 @@ class Classe(models.Model):
     external_intake_open = models.BooleanField(
         "Autoriser les modifications depuis le lien partagé", default=False,
         help_text="Tout le monde voit la liste. Si coché, chacun peut aussi corriger ses informations et s'ajouter.",
+    )
+    public_show_reference = models.BooleanField(
+        "Afficher les matricules sur la liste partagée", default=True,
+        help_text="Décoche pour masquer les matricules aux personnes qui ouvrent le lien.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -148,6 +152,10 @@ class Groupe(models.Model):
     capacity = models.PositiveSmallIntegerField("Capacité maximale", null=True, blank=True)
     theme = models.CharField("Thème", max_length=180, blank=True)
     presentation_order = models.PositiveSmallIntegerField("Ordre de passage", null=True, blank=True)
+    leader = models.ForeignKey(
+        "Membre", null=True, blank=True, on_delete=models.SET_NULL, related_name="groupes_diriges",
+        verbose_name="Chef de groupe",
+    )
 
     class Meta:
         ordering = ["number"]
@@ -347,3 +355,40 @@ class DemandeMembre(models.Model):
 
     def __str__(self):
         return f"{self.full_name} · {self.get_status_display()}"
+
+
+class Commentaire(models.Model):
+    """Note laissée sur une activité (consignes, rappels). Peut être affichée sur les pages publiques."""
+
+    activite = models.ForeignKey(Activite, on_delete=models.CASCADE, related_name="commentaires")
+    author = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="commentaires")
+    body = models.CharField("Message", max_length=1000)
+    is_public = models.BooleanField(
+        "Afficher sur la page publique", default=False,
+        help_text="Visible par les personnes qui ouvrent le lien de l'activité.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.body[:60]
+
+
+class AuditLog(models.Model):
+    """Journal des actions sensibles : qui a fait quoi, quand, depuis quelle IP."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    classe = models.ForeignKey(Classe, null=True, blank=True, on_delete=models.SET_NULL, related_name="journal")
+    action = models.CharField(max_length=40)
+    detail = models.CharField(max_length=300, blank=True)
+    ip = models.CharField(max_length=64, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["classe", "-created_at"])]
+
+    def __str__(self):
+        return f"{self.created_at:%Y-%m-%d %H:%M} {self.action}"

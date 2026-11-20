@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Hors ligne · Cohorte{% endblock %}
+{% block content %}
+<main class="container narrow">
+  <div class="empty">
+    <h1>Tu es hors ligne</h1>
+    <p class="muted" style="margin-top:.6rem">Cohorte a besoin d'une connexion pour afficher tes classes. Vérifie ton réseau puis réessaie.</p>
+    <p style="margin-top:1rem"><button class="btn" type="button" onclick="location.reload()">Réessayer</button></p>
+  </div>
+</main>
+{% endblock %}

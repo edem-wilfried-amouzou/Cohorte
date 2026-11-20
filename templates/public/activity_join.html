@@ -7,6 +7,7 @@
 <main class="public activity-public">
   <div class="public-card">
     <header class="public-head"><p class="brand">{% include "partials/logo.html" %}Cohorte</p><p class="eyebrow">{{ classe.name }} · {{ activite.get_kind_display }}</p><h1>{{ activite.title }}</h1>{% if activite.theme %}<p>Thème : {{ activite.theme }}</p>{% endif %}</header>
+    {% include "partials/announcements.html" %}
     {% if error %}<div class="msg error" role="alert" style="margin-bottom:1rem">{{ error }}</div>{% endif %}
     <form id="join-form" class="card" method="post" data-search-url="{% url 'groupes:activity_join_search' activite.token %}" data-allow-unlisted="0">
       {% csrf_token %}<div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>

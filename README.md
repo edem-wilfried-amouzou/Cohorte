@@ -35,10 +35,29 @@ Une colonne de noms suffit. Si la première ligne contient des titres, sont reco
 ## Sécurité
 
 - Chaque classe n'est visible que par son propriétaire (404 sinon).
-- CSRF, CSP, X-Frame-Options, cookies HttpOnly/SameSite, HTTPS + HSTS hors mode debug.
-- Limiteur de requêtes et champ piège sur le lien public.
+- CSRF, CSP stricte (scripts uniquement `'self'`, htmx hébergé localement), X-Frame-Options, cookies HttpOnly/SameSite, HTTPS + HSTS hors mode debug. Session de 7 jours.
+- Limiteur de requêtes **par IP réelle** (`X-Forwarded-For` derrière Render, `TRUSTED_PROXY_COUNT`), stocké dans un cache partagé entre workers (`DatabaseCache`). Il couvre le lien public, la connexion (par IP et par nom d'utilisateur), l'inscription et la réinitialisation du mot de passe.
+- Inscription : code d'invitation facultatif (`SIGNUP_INVITE_CODE`). Réinitialisation du mot de passe par e-mail.
+- URL de l'admin configurable (`DJANGO_ADMIN_URL`).
+- Liens partagés de 128 bits. Option « masquer les matricules » ; la recherche publique ne porte que sur les champs affichés.
+- Journal d'audit (`AuditLog`, visible dans l'admin) : suppressions, imports, renouvellement de liens, équipe, modifications depuis le lien public.
+- Compte : export JSON de ses données et suppression du compte (page *Mon compte*).
 - Import validé (extension, taille, signature xlsx), exports protégés contre l'injection de formules.
 - Mots de passe : 10 caractères minimum, validateurs Django activés.
+- CI GitHub Actions (modèle dans `docs/ci-workflow.yml`, à copier dans `.github/workflows/ci.yml`) : tests, `check --deploy`, `pip-audit`. Dependabot pour les mises à jour.
+
+## Expérience utilisateur
+
+- Mode sombre (bascule dans la barre + préférence système), lien « Aller au contenu », focus visible, respect de `prefers-reduced-motion`.
+- Application installable (PWA) avec page hors ligne.
+- Pages 404/500 personnalisées.
+- **Chef de groupe** par groupe d'activité, **commentaires** sur une activité (privés ou affichés aux participants), **affiche QR** A4 imprimable (classe et activité).
+
+## Supervision et sauvegardes
+
+- `/sante/` : sonde de santé (teste la base) pour Render et UptimeRobot.
+- `SENTRY_DSN` active Sentry s'il est défini.
+- `scripts/backup.sh` : `pg_dump` compressé avec rotation (14 sauvegardes).
 
 ## Production
 
@@ -57,6 +76,7 @@ Commandes équivalentes pour un autre hébergeur WSGI :
 pip install -r requirements.txt
 python manage.py check --deploy
 python manage.py migrate
+python manage.py createcachetable
 python manage.py collectstatic --noinput
 gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
 ```
