@@ -6,3 +6,5 @@ from .fields import *  # noqa: F401,F403
 from .transfer import *  # noqa: F401,F403
 from .public import *  # noqa: F401,F403
 from .extras import *  # noqa: F401,F403
+from .documents import *  # noqa: F401,F403
+from .feedback import *  # noqa: F401,F403

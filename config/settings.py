@@ -97,11 +97,12 @@ TEMPLATES = [
 
 
 if os.environ.get("DATABASE_URL"):
+    database_url = os.environ["DATABASE_URL"]
     DATABASES = {
         "default": dj_database_url.parse(
-            os.environ.get("DATABASE_URL"),
+            database_url,
             conn_max_age=600,
-            ssl_require=not DEBUG,
+            ssl_require=not DEBUG and database_url.lower().startswith(("postgres://", "postgresql://")),
         )
     }
 elif os.environ.get("POSTGRES_DB"):
@@ -137,6 +138,8 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATIC_ROOT.mkdir(exist_ok=True)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {
@@ -179,9 +182,9 @@ LOGIN_URL = "accounts:login"
 LOGIN_REDIRECT_URL = "groupes:dashboard"
 LOGOUT_REDIRECT_URL = "landing"
 
-# Limites d'envoi (import de fichiers)
-DATA_UPLOAD_MAX_MEMORY_SIZE = 3 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = 3 * 1024 * 1024
+# Taille max de la requête (document 25 Mo + champs multipart) et seuil de mise sur disque temporaire.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 32 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 # --- Sécurité -------------------------------------------------------------
 
@@ -197,7 +200,7 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = os.environ.get("SECURE_HSTS_INCLUDE_SUBDOMAINS", "1") == "1"
     SECURE_HSTS_PRELOAD = os.environ.get("SECURE_HSTS_PRELOAD", "0") == "1"
     SECURE_CONTENT_TYPE_NOSNIFF = os.environ.get("SECURE_CONTENT_TYPE_NOSNIFF", "1") == "1"
-X_FRAME_OPTIONS = "SAMEORIGIN"  # l'aperçu des fichiers utilise une iframe de même origine
+X_FRAME_OPTIONS = "DENY"  # seuls les aperçus de fichiers autorisent explicitement SAMEORIGIN
 SECURE_REFERRER_POLICY = "same-origin"
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 7  # 7 jours

@@ -2,7 +2,7 @@
 {% block title %}Affiche · {{ title }}{% endblock %}
 {% block content %}
 <main class="qr-print">
-  <p class="no-print" style="text-align:left"><a href="{{ back }}">← Retour</a> · <button class="btn small" type="button" onclick="window.print()">Imprimer l'affiche</button></p>
+  <p class="no-print text-left"><a href="{{ back }}">← Retour</a> · <button class="btn small" type="button" onclick="window.print()">Imprimer l'affiche</button></p>
   <h1>{{ title }}</h1>
   <p class="muted">{{ subtitle }}</p>
   <img src="{{ qr_url }}" alt="QR code à scanner pour ouvrir le lien">

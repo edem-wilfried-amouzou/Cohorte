@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q
+from django.db.models.functions import Lower
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -108,14 +109,20 @@ def members(request, pk):
             return redirect("groupes:members", pk=classe.pk)
 
     flt, q = request.GET.get("f", ""), request.GET.get("q", "").strip()
+    sort = request.GET.get("sort", "alpha")
     qs = classe.membres.search(q)
     if flt == "verifier":
         qs = qs.filter(verified=False)
+    if sort == "list":
+        qs = qs.order_by(F("number").asc(nulls_last=True), "last_name", "first_name", "search_name")
+    else:
+        sort = "alpha"
+        qs = qs.order_by(Lower("last_name"), Lower("first_name"), "search_name")
     page = Paginator(qs, 100).get_page(request.GET.get("page"))
     return render(request, "groupes/members.html", {
         "classe": classe, "page": page, "add_form": add_form, "form": ImportForm(),
         "custom_fields": classe.champs_membres.all(),
-        "f": flt, "q": q,
+        "f": flt, "q": q, "sort": sort,
         "stats": {"total": classe.membres.count(), "a_verifier": classe.membres.filter(verified=False).count()},
         "can_edit": request.class_role != Collaborateur.Role.VIEWER,
         "can_delete": _can_delete(request),

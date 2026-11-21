@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Conditions d’utilisation · Cohorte{% endblock %}
+{% block content %}
+<main class="container narrow stack legal-page">
+  <p class="eyebrow">Cadre d’utilisation</p>
+  <h1>Conditions d’utilisation</h1>
+  <p>En utilisant Cohorte, tu acceptes ces règles simples pour organiser des classes, des activités et des documents partagés.</p>
+
+  <h2>Utilisation de la plateforme</h2>
+  <p>Utilise Cohorte pour gérer tes classes et leurs activités. Tu es responsable des informations que tu ajoutes, des personnes à qui tu donnes accès et des liens que tu partages.</p>
+
+  <h2>Listes et documents</h2>
+  <p>Ne dépose que les informations nécessaires à l’activité. Vérifie les réglages avant de rendre une liste, un dossier ou un fichier public. Les visiteurs peuvent enregistrer une copie des documents qu’ils arrivent à consulter.</p>
+
+  <h2>Compte et accès</h2>
+  <p>Garde tes identifiants confidentiels. Tu peux retirer les collaborateurs et renouveler les liens partagés depuis la plateforme. Les actions de gestion peuvent être journalisées pour la sécurité du service.</p>
+
+  <h2>Disponibilité et contact</h2>
+  <p>Le service peut être temporairement indisponible pendant une maintenance. Pour signaler un problème ou poser une question, contacte le responsable de la plateforme.</p>
+
+  <p class="muted small">Pour le traitement des données, consulte aussi la <a href="{% url 'privacy' %}">politique de confidentialité</a>.</p>
+</main>
+{% endblock %}

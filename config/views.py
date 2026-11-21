@@ -3,8 +3,15 @@ from pathlib import Path
 from django.conf import settings
 from django.db import connection
 from django.http import FileResponse, JsonResponse
+from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
+
+
+def landing(request):
+    if request.user.is_authenticated:
+        return redirect("groupes:dashboard")
+    return render(request, "landing.html")
 
 
 @require_GET

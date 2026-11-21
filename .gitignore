@@ -239,6 +239,7 @@ celerybeat.pid
 # Environments
 .env
 .venv
+node_modules/
 db.sqlite3
 db.sqlite3-*
 staticfiles/
@@ -329,5 +330,6 @@ tags
 # Ignore all local history of files
 .history
 .ionide
+node_modules/
 
 # End of https://www.toptal.com/developers/gitignore/api/vim,python,visualstudiocode,pycharm

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Exposés publics · Cohorte{% endblock %}
+{% block content %}
+<main class="container public-directory">
+  <header class="page-head">
+    <div><p class="eyebrow">Bibliothèque publique</p><h1>Exposés et projets</h1><p class="muted">Parcours les activités que leurs organisateurs ont choisi de partager.</p></div>
+  </header>
+  <form method="get" class="card directory-search">
+    <label class="sr-only" for="activity-search">Rechercher</label>
+    <input id="activity-search" type="search" name="q" value="{{ q }}" placeholder="Rechercher un exposé ou une classe">
+    <button class="btn" type="submit">Rechercher</button>
+  </form>
+  <section class="public-directory-grid" aria-label="Activités publiques">
+    {% for activity in page.object_list %}
+    <article class="card public-directory-card">
+      <div class="directory-mark" aria-hidden="true">{{ activity.get_kind_display|first }}</div>
+      <div class="directory-card-copy">
+        <p class="eyebrow">{{ activity.classe.name }} · {{ activity.get_kind_display }}</p>
+        <h2>{{ activity.title }}</h2>
+        <p class="muted small">{{ activity.group_count }} groupe{{ activity.group_count|pluralize }} · {{ activity.participant_count }} participant{{ activity.participant_count|pluralize }}</p>
+      </div>
+      <a class="btn" href="{% url 'groupes:activity_public_view' activity.view_token %}">Voir les groupes</a>
+    </article>
+    {% empty %}
+    <div class="empty"><h2>Aucun exposé public pour le moment</h2><p>Les activités s’affichent ici lorsque leur organisateur active la consultation publique.</p></div>
+    {% endfor %}
+  </section>
+  {% if page.paginator.num_pages > 1 %}
+  <nav class="pager" aria-label="Pagination">
+    {% if page.has_previous %}<a href="?q={{ q|urlencode }}&amp;page={{ page.previous_page_number }}">Précédent</a>{% endif %}
+    <span class="muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a href="?q={{ q|urlencode }}&amp;page={{ page.next_page_number }}">Suivant</a>{% endif %}
+  </nav>
+  {% endif %}
+</main>
+{% endblock %}

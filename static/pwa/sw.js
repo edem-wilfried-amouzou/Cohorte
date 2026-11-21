@@ -1,6 +1,6 @@
 // Service worker Cohorte : fichiers statiques en cache, page hors ligne pour la navigation.
 // Aucune page privée ni donnée de classe n'est mise en cache.
-const VERSION = "cohorte-v1";
+const VERSION = "cohorte-v3";
 const OFFLINE_URL = "/hors-ligne/";
 
 self.addEventListener("install", (event) => {

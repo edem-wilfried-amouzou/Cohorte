@@ -3,7 +3,7 @@ services:
     name: cohorte
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    buildCommand: pip install -r requirements.txt && npm ci --include=dev && npm run build:css && python manage.py collectstatic --noinput --ignore=src/tailwind.css
     startCommand: python manage.py migrate --noinput && python manage.py createcachetable && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     healthCheckPath: /sante/
     envVars:

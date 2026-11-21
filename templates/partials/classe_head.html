@@ -9,6 +9,7 @@
   <a href="{% url 'groupes:detail' classe.pk %}" {% if tab == "overview" %}aria-current="page"{% endif %}>Vue d'ensemble</a>
   <a href="{% url 'groupes:members' classe.pk %}" {% if tab == "members" %}aria-current="page"{% endif %}>Personnes</a>
   <a href="{% url 'groupes:activities' classe.pk %}" {% if tab == "activities" %}aria-current="page"{% endif %}>Exposés & projets</a>
+  <a href="{% url 'groupes:documents' classe.pk %}" {% if tab == "documents" %}aria-current="page"{% endif %}>Documents</a>
   {% if request.class_role == "owner" %}<a href="{% url 'groupes:collaborators' classe.pk %}" {% if tab == "team" %}aria-current="page"{% endif %}>Équipe</a>{% endif %}
   {% if request.class_role == "owner" %}<a href="{% url 'groupes:settings' classe.pk %}" {% if tab == "settings" %}aria-current="page"{% endif %}>Réglages</a>{% endif %}
 </nav>

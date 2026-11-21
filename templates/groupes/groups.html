@@ -6,7 +6,7 @@
 <main class="container">
   {% include "partials/classe_head.html" %}
 
-  <div class="grid two" style="margin-bottom:1.25rem">
+  <div class="grid two mb-5">
     <form method="post" action="{% url 'groupes:group_create' classe.pk %}" class="card">
       {% csrf_token %}
       <h2>Ajouter un groupe</h2>
@@ -17,7 +17,7 @@
         <button class="btn" type="submit">Créer</button>
       </div>
     </form>
-    <div class="card stack" style="--gap:1rem">
+    <div class="card stack gap-4">
       <form method="post" action="{% url 'groupes:groups_bulk' classe.pk %}">
         {% csrf_token %}
         <h2>Créer plusieurs groupes d'un coup</h2>
@@ -34,7 +34,7 @@
     </div>
   </div>
 
-  <p class="hint" style="margin-bottom:1rem">Glisse une personne d'une colonne à l'autre pour l'affecter. Sur téléphone, utilise l'onglet « Personnes ».</p>
+  <p class="hint mb-4">Glisse une personne d'une colonne à l'autre pour l'affecter. Sur téléphone, utilise l'onglet « Personnes ».</p>
 
   <div id="board" class="board" data-csrf="{{ csrf_token }}" data-assign-url="{% url 'groupes:member_assign' classe.pk 0 %}">
     <section class="col waiting" data-group-id="" aria-label="Sans groupe">

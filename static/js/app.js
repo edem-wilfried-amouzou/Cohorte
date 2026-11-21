@@ -125,9 +125,31 @@ document.querySelectorAll("[data-bulk-actions]").forEach((form) => {
   update();
 });
 
+document.querySelectorAll("dialog.modal[data-open-on-load]").forEach((dialog) => {
+  if (typeof dialog.showModal === "function") dialog.showModal();
+});
+
+if (window.location.hash) {
+  const target = document.getElementById(window.location.hash.slice(1));
+  if (target?.matches("dialog.modal") && typeof target.showModal === "function") target.showModal();
+}
+
+document.querySelectorAll("dialog.modal:not(#confirm-dialog)").forEach((dialog) => {
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+});
+
 document.addEventListener("click", (event) => {
   const opener = event.target.closest("[data-dialog-open]");
-  if (opener) document.querySelector(opener.dataset.dialogOpen)?.showModal();
+  if (opener) {
+    const dialog = document.querySelector(opener.dataset.dialogOpen);
+    if (dialog && !dialog.open && typeof dialog.showModal === "function") dialog.showModal();
+    opener.closest("details[open]")?.removeAttribute("open");
+  }
   const closer = event.target.closest("[data-dialog-close]");
-  if (closer) closer.closest("dialog")?.close();
+  if (closer) {
+    const dialog = closer.closest("dialog");
+    if (dialog?.open) dialog.close();
+  }
 });

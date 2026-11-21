@@ -1,5 +1,6 @@
 # ruff: noqa: F401
 from types import SimpleNamespace
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -25,11 +26,13 @@ from ..forms import (
     MembreForm,
 )
 from ..models import (
-    Activite, ChampMembre, Classe, Collaborateur, DemandeMembre, Groupe, Membre, Participation,
+    Activite, ChampMembre, Classe, Collaborateur, DemandeMembre, Document, DossierDocument,
+    Groupe, Membre, Participation,
     compose_full_name, normalize,
 )
 from ..services import importing
 from ..services.allocation import auto_assign
+from ..services.documents import can_preview_in_browser, folder_is_public
 from ..services.exporting import EXPORTERS, collect, collect_activity, filename
 from ..services.qr import qr_svg
 from ..throttle import too_many
@@ -144,16 +147,152 @@ def activity_public_view(request, token, gpk=None):
         if not groups.exists():
             raise Http404
     for group in groups:
-        group.people = [
+        group.people = sorted([
             participation.membre
             for participation in group.participations.all()
             if participation.responded_at
-        ]
+        ], key=lambda member: (
+            normalize(member.last_name or member.full_name),
+            normalize(member.first_name or ""),
+        ))
     return render(request, "public/activity_view.html", {
         "activite": activity, "classe": activity.classe, "groupes": groups,
         "selected_group": gpk is not None,
         "annonces": activity.commentaires.filter(is_public=True)[:5],
         "total_members": sum(len(group.people) for group in groups),
+    })
+
+
+@require_GET
+def public_activity_index(request):
+    """Catalogue global des exposés/projets dont le propriétaire a activé la consultation publique."""
+    query = (request.GET.get("q") or "").strip()[:100]
+    activities = Activite.objects.filter(is_public=True).select_related("classe").annotate(
+        group_count=Count("groupes", distinct=True),
+        participant_count=Count(
+            "participations", filter=Q(participations__responded_at__isnull=False), distinct=True,
+        ),
+    )
+    if query:
+        activities = activities.filter(
+            Q(title__icontains=query) | Q(classe__name__icontains=query),
+        )
+    page = Paginator(activities.order_by("classe__name", "title"), 30).get_page(request.GET.get("page"))
+    return render(request, "public/activity_index.html", {"page": page, "q": query})
+
+
+@require_GET
+def public_portal(request, token):
+    """Page publique d'une classe : activités partagées, groupes et dossiers visibles."""
+    classe = _public_classe(token)
+    view = request.GET.get("view", "members")
+    if view not in {"members", "documents", "activities"}:
+        view = "members"
+    if request.GET.get("folder"):
+        view = "documents"
+    if request.GET.get("activity"):
+        view = "activities"
+    if view == "documents" and not classe.public_documents:
+        view = "members"
+    activities = classe.activites.filter(
+        Q(is_public=True) | Q(is_open=True, deadline__isnull=True) | Q(is_open=True, deadline__gt=timezone.now()),
+    ).annotate(
+        group_count=Count("groupes", distinct=True),
+        participant_count=Count(
+            "participations", filter=Q(participations__responded_at__isnull=False), distinct=True,
+        ),
+    ).order_by("title")
+    all_folders = list(
+        classe.dossiers_documents.select_related("classe", "activite", "parent").prefetch_related("documents").order_by(
+            "activite__title", "parent__name", "name",
+        )
+    )
+    public_folders = [folder for folder in all_folders if folder_is_public(folder)] if classe.public_documents else []
+    children_by_parent = {}
+    for folder in public_folders:
+        children_by_parent.setdefault(folder.parent_id, []).append(folder)
+        folder.visible_documents = [document for document in folder.documents.all() if document.is_public]
+        folder.downloadable_documents = [
+            document for document in folder.visible_documents
+            if folder.allow_public_downloads and document.allow_public_downloads
+        ]
+        for document in folder.visible_documents:
+            document.public_previewable = can_preview_in_browser(document)
+            document.public_downloadable = folder.allow_public_downloads and document.allow_public_downloads
+        folder.total_size = sum(document.byte_size for document in folder.visible_documents)
+
+    def count_downloadable(folder):
+        children = children_by_parent.get(folder.pk, [])
+        folder.subfolder_count = len(children)
+        direct = len(folder.downloadable_documents)
+        folder.downloadable_count = direct + sum(count_downloadable(child) for child in children)
+        return folder.downloadable_count
+
+    for root in children_by_parent.get(None, []):
+        count_downloadable(root)
+
+    folder_id = request.GET.get("folder")
+    if folder_id and classe.public_documents:
+        current_folder = get_object_or_404(DossierDocument, pk=folder_id, classe=classe)
+        if not folder_is_public(current_folder):
+            raise Http404
+        current_folder = next(folder for folder in public_folders if folder.pk == current_folder.pk)
+    else:
+        current_folder = None
+    folders = children_by_parent.get(current_folder.pk if current_folder else None, [])
+    if current_folder:
+        documents = current_folder.visible_documents
+    elif classe.public_documents:
+        documents = list(classe.documents.filter(folder__isnull=True, is_public=True))
+        for document in documents:
+            document.public_previewable = can_preview_in_browser(document)
+            document.public_downloadable = document.allow_public_downloads
+    else:
+        documents = []
+    breadcrumbs = []
+    parent = current_folder
+    while parent:
+        breadcrumbs.insert(0, parent)
+        parent = parent.parent
+
+    member_context = _public_member_directory(request, classe) if view == "members" else {}
+    selected_activity = None
+    selected_groups = []
+    total_group_members = 0
+    activity_id = request.GET.get("activity")
+    if view == "activities" and activity_id:
+        selected_activity = get_object_or_404(Activite, pk=activity_id, classe=classe, is_public=True)
+        selected_groups = list(
+            selected_activity.groupes.select_related("leader").prefetch_related("participations__membre").order_by(
+                F("presentation_order").asc(nulls_last=True), "number",
+            )
+        )
+        for group in selected_groups:
+            group.people = sorted([
+                participation.membre for participation in group.participations.all()
+                if participation.responded_at
+            ], key=lambda member: (
+                normalize(member.last_name or member.full_name), normalize(member.first_name or ""),
+            ))
+            total_group_members += len(group.people)
+
+    return render(request, "public/portal.html", {
+        "classe": classe,
+        "activites": activities,
+        "folders": folders,
+        "all_public_folders": public_folders,
+        "current_folder": current_folder,
+        "documents": documents,
+        "folder_breadcrumbs": breadcrumbs,
+        "view": view,
+        "selected_activity": selected_activity,
+        "selected_groups": selected_groups,
+        "total_group_members": total_group_members,
+        "public_documents_enabled": classe.public_documents,
+        "public_list_editing": _public_editing_open(classe),
+        "member_count": classe.membres.count(),
+        "portal_url": request.build_absolute_uri(reverse("groupes:public_portal", args=[classe.token])),
+        **member_context,
     })
 
 
@@ -165,8 +304,13 @@ def _public_editing_open(classe) -> bool:
 def public_members(request, token):
     """Lien unique : tout le monde voit la liste, et peut la compléter si le délégué l'a autorisé."""
     classe = _public_classe(token)
+    query = urlencode({**request.GET.dict(), "view": "members"})
+    return redirect(f"{reverse('groupes:public_portal', args=[classe.token])}?{query}")
+
+
+def _public_member_directory(request, classe):
     q = (request.GET.get("q") or "").strip()
-    sort = request.GET.get("sort", "list")
+    sort = request.GET.get("sort", "alpha")
     custom_fields = list(classe.champs_membres.filter(public=True).order_by("position", "id"))
     members = list(classe.membres.search(""))
     if q:
@@ -183,24 +327,27 @@ def public_members(request, token):
 
         members = [member for member in members if all(token_ in haystack(member) for token_ in tokens)]
     if sort == "alpha":
-        members.sort(key=lambda member: member.full_name.casefold())
+        members.sort(key=lambda member: (
+            normalize(member.last_name or member.full_name),
+            normalize(member.first_name or ""),
+        ))
     elif sort in {field.key for field in custom_fields}:
         members.sort(key=lambda member: str(member.custom_data.get(sort, "")).casefold())
     editing = _public_editing_open(classe)
-    return render(request, "public/list.html", {
-        "classe": classe, "members": members, "q": q, "sort": sort,
+    return {
+        "members": members, "q": q, "sort": sort,
         "custom_fields": custom_fields, "editing": editing,
         "edit_form": PublicListForm(classe=classe, mode="edit") if editing else None,
         "add_form": PublicListForm(classe=classe, mode="add") if editing else None,
         "show_number": any(member.number for member in members),
         "show_sex": any(member.sex for member in members),
         "show_reference": classe.public_show_reference and any(member.reference for member in members),
-    })
+    }
 
 
 def _public_guard(request, classe):
     """Retourne une redirection si la modification publique n'est pas possible, sinon None."""
-    back = redirect("groupes:public_members", token=classe.token)
+    back = redirect(f"{reverse('groupes:public_portal', args=[classe.token])}?view=members")
     if not _public_editing_open(classe):
         messages.error(request, "Les modifications sont fermées pour cette liste.")
         return back
@@ -250,7 +397,7 @@ def public_member_edit(request, token, mpk):
         messages.success(request, f"Informations de {member.full_name} mises à jour.")
     else:
         messages.error(request, _form_error_text(form))
-    return redirect("groupes:public_members", token=classe.token)
+    return redirect(f"{reverse('groupes:public_portal', args=[classe.token])}?view=members")
 
 
 @require_POST
@@ -278,7 +425,7 @@ def public_member_add(request, token):
                 messages.error(request, "Ce nom est déjà dans la liste.")
     else:
         messages.error(request, _form_error_text(form))
-    return redirect("groupes:public_members", token=classe.token)
+    return redirect(f"{reverse('groupes:public_portal', args=[classe.token])}?view=members")
 
 
 @require_http_methods(["GET", "POST"])

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Journaux · Console super admin{% endblock %}
+{% block content %}
+<main class="container console-shell">
+  <header class="page-head"><div><p class="eyebrow">Administration de la plateforme</p><h1>Journaux d’activité</h1><p class="muted">Actions sensibles enregistrées par Cohorte, avec leur date, leur compte et leur adresse IP.</p></div><a class="btn ghost" href="{% url 'admin:groupes_auditlog_changelist' %}">Admin Django ↗</a></header>
+  <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a href="{% url 'console:users' %}">Utilisateurs</a><a href="{% url 'console:feedbacks' %}">Retours</a><a aria-current="page" href="{% url 'console:logs' %}">Journaux</a><a href="{% url 'console:technical' %}">Documentation</a></nav>
+  <form method="get" class="card console-filter">
+    <label class="sr-only" for="log-search">Chercher dans les journaux</label><input id="log-search" type="search" name="q" value="{{ q }}" placeholder="Compte, classe, action, détail ou IP">
+    <select name="action" aria-label="Filtrer par action"><option value="">Toutes les actions</option>{% for item in actions %}<option value="{{ item }}" {% if action == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select>
+    <button class="btn" type="submit">Filtrer</button>
+  </form>
+  <section class="card flat"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Compte</th><th>Action</th><th>Classe</th><th>Détail</th><th>Adresse IP</th></tr></thead><tbody>
+    {% for event in page.object_list %}<tr><td>{{ event.created_at|date:"d/m/Y H:i:s" }}</td><td>{{ event.user.username|default:"Anonyme" }}</td><td><code>{{ event.action }}</code></td><td>{{ event.classe.name|default:"—" }}</td><td>{{ event.detail|default:"—" }}</td><td><code>{{ event.ip|default:"—" }}</code></td></tr>
+    {% empty %}<tr><td colspan="6" class="muted">Aucun événement ne correspond.</td></tr>{% endfor %}
+  </tbody></table></div></section>
+  {% if page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination">{% if page.has_previous %}<a href="?action={{ action|urlencode }}&amp;q={{ q|urlencode }}&amp;page={{ page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?action={{ action|urlencode }}&amp;q={{ q|urlencode }}&amp;page={{ page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
+  <section class="console-admin-logs"><div class="section-heading"><div><p class="eyebrow">Admin Django</p><h2>Modifications de l’administration</h2></div></div>
+    <div class="card flat"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Compte admin</th><th>Action</th><th>Objet</th><th>Type</th></tr></thead><tbody>
+      {% for event in admin_page.object_list %}<tr><td>{{ event.action_time|date:"d/m/Y H:i:s" }}</td><td>{{ event.user.username }}</td><td>{{ event.get_action_flag_display }}</td><td>{{ event.object_repr }}</td><td>{{ event.content_type.name|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5" class="muted">Aucune modification dans l’administration.</td></tr>{% endfor %}
+    </tbody></table></div></div>
+    {% if admin_page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination des modifications admin">{% if admin_page.has_previous %}<a href="?q={{ q|urlencode }}&amp;action={{ action|urlencode }}&amp;admin_page={{ admin_page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ admin_page.number }} sur {{ admin_page.paginator.num_pages }}</span>{% if admin_page.has_next %}<a href="?q={{ q|urlencode }}&amp;action={{ action|urlencode }}&amp;admin_page={{ admin_page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
+  </section>
+</main>
+{% endblock %}

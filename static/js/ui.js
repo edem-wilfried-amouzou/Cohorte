@@ -48,3 +48,25 @@ if (editDialog) {
     editDialog.showModal();
   });
 }
+
+// Prévisualisation des fichiers sûrs directement dans une fenêtre de la bibliothèque.
+const previewDialog = document.getElementById("document-preview-dialog");
+if (previewDialog) {
+  const frame = previewDialog.querySelector("iframe");
+  const title = previewDialog.querySelector("#document-preview-title");
+  const download = previewDialog.querySelector("[data-preview-download]");
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-document-preview]");
+    if (!link) return;
+    event.preventDefault();
+    const previewUrl = link.dataset.previewUrl || link.href;
+    if (title) title.textContent = link.dataset.previewTitle || "Document";
+    if (frame) frame.src = previewUrl;
+    if (download) {
+      download.href = previewUrl.replace(/[?&]inline=1(?:&|$)/, "").replace(/[?&]$/, "");
+      download.hidden = link.dataset.previewDownloadable === "false";
+    }
+    previewDialog.showModal();
+  });
+  previewDialog.addEventListener("close", () => { if (frame) frame.src = "about:blank"; });
+}

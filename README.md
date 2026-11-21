@@ -7,6 +7,8 @@ Plateforme Django pour gérer les classes, activités (exposés/projets), groupe
 ```bash
 python -m venv .venv && source .venv/bin/activate   # Windows : .venv\Scripts\activate
 pip install -r requirements.txt
+npm ci
+npm run build:css
 cp .env.example .env                                  # Windows : copy .env.example .env
 python manage.py migrate
 python manage.py runserver
@@ -19,6 +21,8 @@ Ouvre http://127.0.0.1:8000, crée ton compte, puis :
 3. Partage son lien d’inscription ou active un lien de consultation publique en lecture seule.
 4. Suis les réponses et affecte plusieurs membres en une action depuis l’annuaire.
 5. Exporte chaque activité en PDF, Excel, Word ou CSV.
+
+Les styles sont compilés localement avec Tailwind CSS. Pendant le développement, lance `npm run watch:css` dans un terminal pour recompiler après chaque changement de gabarit ou de style. La production compile le fichier avant `collectstatic` et ignore le fichier source Tailwind; aucun CDN Tailwind n'est chargé par les visiteurs.
 
 ## Ce que fait le lien public
 
@@ -45,6 +49,11 @@ Une colonne de noms suffit. Si la première ligne contient des titres, sont reco
 - Import validé (extension, taille, signature xlsx), exports protégés contre l'injection de formules.
 - Mots de passe : 10 caractères minimum, validateurs Django activés.
 - CI GitHub Actions (modèle dans `docs/ci-workflow.yml`, à copier dans `.github/workflows/ci.yml`) : tests, `check --deploy`, `pip-audit`. Dependabot pour les mises à jour.
+- La liste des personnes se trie par nom de famille ou par ordre d'import. Dans une activité, la fenêtre d'affectation ne propose que les personnes qui n'ont pas encore de groupe.
+- `/exposes/` réunit les activités dont la consultation publique est activée. Chaque classe a aussi une page de partage avec ses activités et ses dossiers publics.
+- Les documents sont rangés dans des dossiers généraux ou liés à une activité. Le propriétaire active la rubrique publique dans les réglages, puis choisit les dossiers et fichiers visibles, le téléchargement et le dépôt public. Les aperçus compatibles s’ouvrent dans le navigateur. Limites : 25 Mo par fichier, 250 Mo par classe et 100 Mo par archive ZIP.
+- `/retour/` reçoit les bugs, réclamations et propositions; les superadmins les traitent dans **Console → Retours**.
+- `/console/` est réservé aux superadmins : comptes, admins, retours, contrôles de configuration et journaux Cohorte/Django Admin.
 
 ## Expérience utilisateur
 
@@ -77,7 +86,7 @@ pip install -r requirements.txt
 python manage.py check --deploy
 python manage.py migrate
 python manage.py createcachetable
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --ignore=src/tailwind.css
 gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
 ```
 
@@ -86,6 +95,8 @@ gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --
 Les données de `db.sqlite3` ne sont pas copiées automatiquement vers Neon. Pour garder les données locales, effectue un export/import de données Django ou une migration dédiée avant la mise en service; vérifie également les utilisateurs et fichiers nécessaires. La sauvegarde SQLite reste à conserver tant que la vérification des données PostgreSQL n’est pas terminée.
 
 Le service web Render gratuit peut s’endormir après inactivité; pour un usage régulier, choisis une instance adaptée. Configure également un cache partagé (Redis) avant d’utiliser plusieurs instances, car le limiteur de requêtes actuel repose sur le cache local.
+
+Les fichiers déposés sont conservés dans `MEDIA_ROOT` (par défaut `media/`). En production, définis `MEDIA_ROOT` sur un disque persistant ou configure un stockage objet avant d'accepter des documents : le disque local d'un service web éphémère peut être effacé lors d'un redéploiement.
 
 ## Tests
 

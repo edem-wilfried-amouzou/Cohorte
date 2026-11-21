@@ -1,5 +1,5 @@
 {% if annonces %}
-<section class="stack" aria-label="Annonces de l'organisateur" style="margin:1rem 0">
-  {% for note in annonces %}<div class="announce"><strong>Annonce</strong> · <span class="muted small">{{ note.created_at|date:"d/m/Y H:i" }}</span><p style="white-space:pre-wrap">{{ note.body }}</p></div>{% endfor %}
+<section class="stack my-4" aria-label="Annonces de l'organisateur">
+  {% for note in annonces %}<div class="announce"><strong>Annonce</strong> · <span class="muted small">{{ note.created_at|date:"d/m/Y H:i" }}</span><p class="whitespace-pre-wrap">{{ note.body }}</p></div>{% endfor %}
 </section>
 {% endif %}

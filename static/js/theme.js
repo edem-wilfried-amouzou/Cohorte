@@ -1,16 +1,35 @@
-// Applique le thème enregistré avant l'affichage (évite le flash) et gère la bascule clair/sombre.
+// Applique le thème avant l'affichage et suit le thème système tant que l'utilisateur ne choisit pas.
 (function () {
   var root = document.documentElement;
   var saved = null;
+  var media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  var followsSystem = true;
   try { saved = localStorage.getItem("theme"); } catch (e) {}
-  if (saved === "dark" || saved === "light") root.setAttribute("data-theme", saved);
+
+  function setTheme(theme) {
+    root.setAttribute("data-theme", theme);
+  }
+
+  if (saved === "dark" || saved === "light") {
+    followsSystem = false;
+    setTheme(saved);
+  } else {
+    setTheme(media && media.matches ? "dark" : "light");
+  }
+
+  if (media) {
+    var onSystemChange = function (event) {
+      if (followsSystem) setTheme(event.matches ? "dark" : "light");
+    };
+    if (media.addEventListener) media.addEventListener("change", onSystemChange);
+    else if (media.addListener) media.addListener(onSystemChange);
+  }
+
   document.addEventListener("DOMContentLoaded", function () {
     var button = document.getElementById("theme-toggle");
     if (!button) return;
     function isDark() {
-      var forced = root.getAttribute("data-theme");
-      if (forced) return forced === "dark";
-      return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+      return root.getAttribute("data-theme") === "dark";
     }
     function refresh() {
       var dark = isDark();
@@ -20,7 +39,8 @@
     }
     button.addEventListener("click", function () {
       var next = isDark() ? "light" : "dark";
-      root.setAttribute("data-theme", next);
+      followsSystem = false;
+      setTheme(next);
       try { localStorage.setItem("theme", next); } catch (e) {}
       refresh();
     });

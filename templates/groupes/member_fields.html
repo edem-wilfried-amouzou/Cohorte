@@ -3,10 +3,11 @@
 {% block content %}
 <main class="container">
   {% include "partials/classe_head.html" %}
+  <p class="mb-3"><a class="btn ghost small" href="{% url 'groupes:members' classe.pk %}">← Retour aux personnes</a></p>
 
-  <section class="card" style="margin-top:1rem">
+  <section class="card mt-4">
     <h2>Ajouter un champ</h2>
-    <form method="post" class="stack" style="--gap:0.9rem">
+    <form method="post" class="stack gap-4">
       {% csrf_token %}
       <div class="inline-form">
         {% include "partials/field.html" with field=form.key %}
@@ -22,15 +23,15 @@
   </section>
 
   {% if fields %}
-  <section class="card" style="margin-top:1rem">
+  <section class="card mt-4">
     <h2>Champs existants</h2>
-    <div class="stack" style="--gap:0.8rem">
+    <div class="stack gap-3">
       {% for field in fields %}
-      <form method="post" class="row between" style="gap:0.75rem; align-items:center; border:1px solid var(--line); border-radius:12px; padding:0.75rem 0.9rem;">
+      <form method="post" class="row between items-center gap-3 rounded-xl border border-line p-3 sm:px-4">
         {% csrf_token %}
         <input type="hidden" name="field_id" value="{{ field.pk }}">
-        <input type="text" name="key" value="{{ field.key }}" aria-label="Code" style="max-width:140px;">
-        <input type="text" name="label" value="{{ field.label }}" aria-label="Libellé" style="min-width:220px; flex:1;">
+        <input type="text" name="key" value="{{ field.key }}" aria-label="Code" class="max-w-[140px]">
+        <input type="text" name="label" value="{{ field.label }}" aria-label="Libellé" class="min-w-[220px] flex-1">
         <select name="kind" aria-label="Type">
           {% for value, label in form.fields.kind.choices %}<option value="{{ value }}" {% if field.kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
         </select>

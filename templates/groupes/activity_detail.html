@@ -1,96 +1,110 @@
 {% extends "base.html" %}
-{% block title %}{{ activite.title }} - {{ classe.name }}{% endblock %}
+{% block title %}{{ activite.title }} · {{ classe.name }}{% endblock %}
 {% block content %}
 <main class="container">
   {% include "partials/classe_head.html" %}
-  <div class="activity-title-row">
-    <div><p class="eyebrow">{{ activite.get_kind_display }}{% if activite.theme %} · {{ activite.theme }}{% endif %}</p><h2>{{ activite.title }}</h2></div>
-    {% if can_edit %}<div class="activity-actions">
-      <form method="post" action="{% url 'groupes:activity_delete' classe.pk activite.pk %}" data-confirm="Supprimer cette activité et ses groupes ? Les membres de la classe seront conservés.">{% csrf_token %}<button class="btn danger small" type="submit">Supprimer l’activité</button></form>
-    </div>{% endif %}
-  </div>
+  <header class="activity-title-row">
+    <div><p class="eyebrow">{{ activite.get_kind_display }} · {{ classe.name }}</p><h2>{{ activite.title }}</h2></div>
+    <div class="activity-page-tools"><a class="btn ghost small" href="{% url 'groupes:activities' classe.pk %}">← Toutes les activités</a><button class="btn" type="button" data-dialog-open="#activity-options-dialog">Options de l’activité</button></div>
+  </header>
+
   <section class="stats activity-stats">
     <div class="stat"><b>{{ stats.total }}</b><span>Participations</span></div>
     <div class="stat"><b>{{ stats.affectes }}</b><span>Dans un groupe</span></div>
     <div class="stat"><b>{{ stats.declares }}</b><span>Sans groupe</span></div>
     <div class="stat"><b>{{ stats.attente }}</b><span>En attente</span></div>
   </section>
-  <div class="activity-detail-grid">
-    <section class="activity-main">
-      {% if can_edit %}<div class="activity-quickbar">
-        <button class="btn" type="button" data-dialog-open="#create-group-dialog">+ Ajouter un groupe</button>
-        <button class="btn ghost" type="button" data-dialog-open="#bulk-groups-dialog">Créer une série</button>
-        <button class="btn ghost" type="button" data-dialog-open="#assign-member-dialog">Affecter des membres</button>
-      </div>
-      <dialog class="modal" id="create-group-dialog"><div class="modal-head"><h2>Nouveau groupe</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_group_create' classe.pk activite.pk %}" class="modal-form">
-        {% csrf_token %}<div class="modal-fields">{% include "partials/field.html" with field=group_form.number %}{% include "partials/field.html" with field=group_form.name %}{% include "partials/field.html" with field=group_form.capacity %}{% include "partials/field.html" with field=group_form.theme %}{% include "partials/field.html" with field=group_form.presentation_order %}</div><button class="btn" type="submit">Créer le groupe</button>
-      </form></dialog>
-      <dialog class="modal" id="bulk-groups-dialog"><div class="modal-head"><h2>Créer plusieurs groupes</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_groups_bulk' classe.pk activite.pk %}" class="modal-form">
-        {% csrf_token %}<div class="modal-fields">{% include "partials/field.html" with field=bulk.count %}{% include "partials/field.html" with field=bulk.capacity %}</div><button class="btn" type="submit">Créer la série</button>
-      </form></dialog>{% endif %}
+
+  <section class="activity-main">
+    {% if can_edit %}<div class="activity-quickbar">
+      <button class="btn" type="button" data-dialog-open="#create-group-dialog">+ Ajouter un groupe</button>
+      <button class="btn ghost" type="button" data-dialog-open="#bulk-groups-dialog">Créer une série</button>
+    </div>
+    <dialog class="modal" id="create-group-dialog" aria-labelledby="create-group-title"><div class="modal-head"><h2 id="create-group-title">Nouveau groupe</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_group_create' classe.pk activite.pk %}" class="modal-form">
+      {% csrf_token %}<div class="modal-fields">{% include "partials/field.html" with field=group_form.number %}{% include "partials/field.html" with field=group_form.name %}{% include "partials/field.html" with field=group_form.capacity %}{% include "partials/field.html" with field=group_form.theme %}{% include "partials/field.html" with field=group_form.presentation_order %}</div><div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Créer le groupe</button></div>
+    </form></dialog>
+    <dialog class="modal form-modal" id="bulk-groups-dialog" aria-labelledby="bulk-groups-title"><div class="modal-head"><h2 id="bulk-groups-title">Créer une série de groupes</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_groups_bulk' classe.pk activite.pk %}" class="modal-form">
+      {% csrf_token %}<div class="modal-fields">{% include "partials/field.html" with field=bulk.count %}{% include "partials/field.html" with field=bulk.capacity %}</div><div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Créer la série</button></div>
+    </form></dialog>{% endif %}
+
+    <section class="activity-groups-section" aria-labelledby="groups-title">
+      <div class="section-heading"><div><p class="eyebrow">Répartition</p><h2 id="groups-title">Groupes</h2></div><span class="badge">{{ groupes|length }}</span></div>
       <div class="group-grid">
-        {% for groupe in groupes %}
-        <article class="activity-group">
-          <header><span class="group-number">{{ groupe.number }}</span><div><h3>{{ groupe.name|default:groupe.short_label }}</h3><p>{% if groupe.theme %}{{ groupe.theme }} · {% endif %}{{ groupe.size }} membre{{ groupe.size|pluralize }}{% if groupe.capacity %} / {{ groupe.capacity }}{% endif %}</p></div>{% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}</header>
-          <ul>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<li>{{ participation.membre.full_name }}{% if participation.membre.pk == groupe.leader_id %} <span class="badge leader">Chef</span>{% endif %}</li>{% endif %}{% endfor %}</ul>
-          {% if activite.is_public %}<a class="small group-public-link" href="{% url 'groupes:activity_public_group_view' activite.view_token groupe.pk %}" target="_blank" rel="noopener">Lien de consultation du groupe ↗</a>{% endif %}
-          {% if can_edit %}<details class="group-edit"><summary>Modifier</summary><form method="post" action="{% url 'groupes:activity_group_edit' classe.pk activite.pk groupe.pk %}" class="stack">
-            {% csrf_token %}<div class="field"><label for="group-number-{{ groupe.pk }}">Numéro</label><input id="group-number-{{ groupe.pk }}" name="number" type="number" min="1" max="500" value="{{ groupe.number }}" required></div>
-            <div class="field"><label for="group-name-{{ groupe.pk }}">Nom du groupe</label><input id="group-name-{{ groupe.pk }}" name="name" value="{{ groupe.name }}" maxlength="80"></div>
-            <div class="field"><label for="group-theme-{{ groupe.pk }}">Thème</label><input id="group-theme-{{ groupe.pk }}" name="theme" value="{{ groupe.theme }}" maxlength="180"></div>
-            <div class="inline-form"><div class="field"><label for="group-capacity-{{ groupe.pk }}">Capacité</label><input id="group-capacity-{{ groupe.pk }}" name="capacity" type="number" min="1" value="{{ groupe.capacity|default_if_none:'' }}"></div><div class="field"><label for="group-order-{{ groupe.pk }}">Ordre de passage</label><input id="group-order-{{ groupe.pk }}" name="presentation_order" type="number" min="1" value="{{ groupe.presentation_order|default_if_none:'' }}"></div></div>
-            <button class="btn ghost small" type="submit">Enregistrer</button>
-          </form><form method="post" action="{% url 'groupes:activity_group_leader' classe.pk activite.pk groupe.pk %}" class="stack">
-            {% csrf_token %}<div class="field"><label for="group-leader-{{ groupe.pk }}">Chef de groupe</label><select id="group-leader-{{ groupe.pk }}" name="leader"><option value="">Aucun</option>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<option value="{{ participation.membre.pk }}" {% if participation.membre.pk == groupe.leader_id %}selected{% endif %}>{{ participation.membre.full_name }}</option>{% endif %}{% endfor %}</select></div><button class="btn ghost small" type="submit">Désigner</button>
-          </form><form method="post" action="{% url 'groupes:activity_group_delete' classe.pk activite.pk groupe.pk %}" data-confirm="Supprimer ce groupe ? Ses participations resteront sans groupe.">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer le groupe</button></form></details>{% endif %}
-        </article>
-        {% empty %}<div class="empty"><p>Crée un groupe ou une série de groupes pour commencer.</p></div>{% endfor %}
+        {% for groupe in groupes %}<article class="activity-group">
+          <header class="activity-group-head"><span class="group-number">{{ groupe.number }}</span><div class="activity-group-heading"><h3>{{ groupe.name|default:groupe.short_label }}</h3><p>{% if groupe.theme %}{{ groupe.theme }} · {% endif %}{{ groupe.size }} membre{{ groupe.size|pluralize }}{% if groupe.capacity %} / {{ groupe.capacity }}{% endif %}</p></div>
+            {% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}
+            {% if can_edit or activite.is_public %}<details class="action-menu group-action-menu"><summary aria-label="Options de {{ groupe.name|default:groupe.short_label }}">···</summary><div class="action-menu-panel">
+              {% if activite.is_public %}<input class="sr-only" id="group-view-link-{{ groupe.pk }}" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'groupes:activity_public_group_view' activite.view_token groupe.pk %}" aria-label="Lien public de {{ groupe.name|default:groupe.short_label }}"><button type="button" data-copy="#group-view-link-{{ groupe.pk }}">Copier le lien de consultation</button><a href="{% url 'groupes:activity_public_group_view' activite.view_token groupe.pk %}" target="_blank" rel="noopener">Voir le groupe en public</a>{% endif %}
+              {% if can_edit %}<button type="button" data-dialog-open="#group-options-{{ groupe.pk }}">Modifier les réglages</button>
+                <form method="post" action="{% url 'groupes:activity_group_delete' classe.pk activite.pk groupe.pk %}" data-confirm="Supprimer ce groupe ? Ses participations resteront sans groupe.">{% csrf_token %}<button class="danger-text" type="submit">Supprimer le groupe</button></form>
+              {% endif %}
+            </div></details>{% endif %}
+          </header>
+          <ul class="activity-group-members">{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<li>{{ participation.membre.full_name }}{% if participation.membre.pk == groupe.leader_id %} <span class="badge leader">Chef</span>{% endif %}</li>{% endif %}{% empty %}<li class="muted small">Aucun membre</li>{% endfor %}</ul>
+          {% if can_edit %}<dialog class="modal form-modal group-options-dialog" id="group-options-{{ groupe.pk }}" aria-labelledby="group-options-title-{{ groupe.pk }}">
+            <div class="modal-head"><div><p class="eyebrow">Options du groupe</p><h2 id="group-options-title-{{ groupe.pk }}">{{ groupe.name|default:groupe.short_label }}</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+            <form method="post" action="{% url 'groupes:activity_group_edit' classe.pk activite.pk groupe.pk %}" class="modal-form">
+              {% csrf_token %}<div class="modal-fields">
+                <div class="field"><label for="group-number-{{ groupe.pk }}">Numéro</label><input id="group-number-{{ groupe.pk }}" name="number" type="number" min="1" max="500" value="{{ groupe.number }}" required></div>
+                <div class="field"><label for="group-name-{{ groupe.pk }}">Nom du groupe</label><input id="group-name-{{ groupe.pk }}" name="name" value="{{ groupe.name }}" maxlength="80"></div>
+                <div class="field"><label for="group-theme-{{ groupe.pk }}">Thème</label><input id="group-theme-{{ groupe.pk }}" name="theme" value="{{ groupe.theme }}" maxlength="180"></div>
+                <div class="field"><label for="group-capacity-{{ groupe.pk }}">Capacité</label><input id="group-capacity-{{ groupe.pk }}" name="capacity" type="number" min="1" value="{{ groupe.capacity|default_if_none:'' }}"></div>
+                <div class="field"><label for="group-order-{{ groupe.pk }}">Ordre de passage</label><input id="group-order-{{ groupe.pk }}" name="presentation_order" type="number" min="1" value="{{ groupe.presentation_order|default_if_none:'' }}"></div>
+              </div>
+              <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Fermer</button><button class="btn" type="submit">Enregistrer les réglages</button></div>
+            </form>
+            <form method="post" action="{% url 'groupes:activity_group_leader' classe.pk activite.pk groupe.pk %}" class="modal-form group-leader-form">
+              {% csrf_token %}<div class="field"><label for="group-leader-{{ groupe.pk }}">Chef de groupe</label><select id="group-leader-{{ groupe.pk }}" name="leader"><option value="">Aucun</option>{% for participation in participants %}{% if participation.groupe_id == groupe.id %}<option value="{{ participation.membre.pk }}" {% if participation.membre.pk == groupe.leader_id %}selected{% endif %}>{{ participation.membre.full_name }}</option>{% endif %}{% endfor %}</select></div>
+              <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Fermer</button><button class="btn ghost" type="submit">Enregistrer le chef</button></div>
+            </form>
+          </dialog>{% endif %}
+        </article>{% empty %}<div class="empty"><h2>Aucun groupe</h2><p>Crée un groupe ou une série pour commencer.</p></div>{% endfor %}
       </div>
-      <section class="card assignment-section"><div class="row between"><h3>Membres et répartition</h3>{% if can_edit %}<button class="btn ghost small" type="button" data-dialog-open="#assign-member-dialog">Affecter un membre</button>{% endif %}</div>
-        <div class="table-wrap"><table><thead><tr><th>Membre</th><th>Groupe</th><th>État</th></tr></thead><tbody>
-          {% for participation in participants %}<tr><td>{{ participation.membre.full_name }}</td><td>{{ participation.groupe.label|default:"Sans groupe" }}</td><td>{{ participation.status_label }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Aucune réponse enregistrée.</td></tr>{% endfor %}
-        </tbody></table></div>
-      </section>
-      {% if can_edit %}<dialog class="modal" id="assign-member-dialog"><div class="modal-head"><h2>Affecter un membre</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_assign' classe.pk activite.pk %}" class="modal-form">
-        {% csrf_token %}<div class="modal-fields"><div class="field"><label for="assign-member">Membre de la classe</label><select id="assign-member" name="membre" required><option value="">Sélectionner…</option>{% for membre in membres %}<option value="{{ membre.pk }}">{{ membre.full_name }}</option>{% endfor %}</select></div><div class="field"><label for="assign-group">Groupe</label><select id="assign-group" name="groupe"><option value="">Sans groupe</option>{% for groupe in groupes %}<option value="{{ groupe.pk }}">{{ groupe.short_label }}{% if groupe.name %} · {{ groupe.name }}{% endif %}</option>{% endfor %}</select></div></div><button class="btn" type="submit">Enregistrer l’affectation</button>
-      </form></dialog>{% endif %}
     </section>
-    <aside class="activity-aside">
-      <section class="card share-card"><div class="share-heading"><span class="share-icon">↗</span><div><h3>Lien d’inscription</h3><p>Un lien par exposé ou projet</p></div></div>
-        {% if activite.accepting %}<div class="linkbox"><input id="activity-url" type="text" readonly value="{{ public_url }}" aria-label="Lien de l’activité"><button class="btn" type="button" data-copy="#activity-url">Copier</button></div>
-        <img class="activity-qr" src="{% url 'groupes:activity_qr' classe.pk activite.pk %}" alt="QR code du lien de l’activité">
-        {% else %}<p class="muted">Le lien est fermé.</p>{% endif %}
-        <div class="row"><span class="badge {% if activite.accepting %}affecte{% else %}en_attente{% endif %}">{% if activite.accepting %}Inscriptions ouvertes{% else %}Inscriptions fermées{% endif %}</span>
-        {% if can_edit %}<form method="post" action="{% url 'groupes:activity_regenerate' classe.pk activite.pk %}" data-confirm="L’ancien lien cessera de fonctionner.">{% csrf_token %}<button class="linkbtn" type="submit">Renouveler le lien</button></form>{% endif %}</div>
+
+    <section class="card assignment-section"><div class="row between"><div><h3>Membres et répartition</h3><p class="muted small">Affecte une personne à un groupe ou change sa répartition.</p></div>{% if can_edit %}<button class="btn ghost small" type="button" data-dialog-open="#assign-member-dialog">+ Ajouter un membre</button>{% endif %}</div>
+      <div class="table-wrap"><table><thead><tr><th>Membre</th><th>Groupe</th><th>État</th></tr></thead><tbody>
+        {% for participation in participants %}<tr><td><strong>{{ participation.membre.last_name|default:participation.membre.full_name }}</strong>{% if participation.membre.last_name and participation.membre.first_name %}<div class="muted small">{{ participation.membre.first_name }}</div>{% endif %}</td><td>
+          {% if can_edit %}<form method="post" action="{% url 'groupes:activity_assign' classe.pk activite.pk %}" class="activity-member-assignment">{% csrf_token %}<input type="hidden" name="membre" value="{{ participation.membre.pk }}"><label class="sr-only" for="member-group-{{ participation.membre.pk }}">Groupe de {{ participation.membre.full_name }}</label><select id="member-group-{{ participation.membre.pk }}" name="groupe"><option value="">Sans groupe</option>{% for groupe in groupes %}<option value="{{ groupe.pk }}" {% if participation.groupe_id == groupe.pk %}selected{% endif %}>{{ groupe.short_label }}{% if groupe.name %} · {{ groupe.name }}{% endif %}</option>{% endfor %}</select><button class="btn small" type="submit">Enregistrer</button></form>
+          {% else %}{{ participation.groupe.label|default:"Sans groupe" }}{% endif %}
+        </td><td>{{ participation.status_label }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Aucune personne dans la classe.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+    {% if can_edit %}<dialog class="modal form-modal" id="assign-member-dialog" aria-labelledby="assign-member-title"><div class="modal-head"><div><p class="eyebrow">Répartition</p><h2 id="assign-member-title">Ajouter un membre à l’activité</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_assign' classe.pk activite.pk %}" class="modal-form">
+      {% csrf_token %}<div class="modal-fields"><div class="field"><label for="assign-member">Membre</label><select id="assign-member" name="membre" required><option value="">{% if membres %}Sélectionner…{% else %}Tout le monde est déjà affecté{% endif %}</option>{% for membre in membres %}<option value="{{ membre.pk }}">{{ membre.last_name|default:membre.full_name }}{% if membre.first_name %} · {{ membre.first_name }}{% endif %}</option>{% endfor %}</select><small class="muted">Les personnes déjà affectées à un groupe n’apparaissent pas ici.</small></div><div class="field"><label for="assign-group">Groupe</label><select id="assign-group" name="groupe"><option value="">Sans groupe</option>{% for groupe in groupes %}<option value="{{ groupe.pk }}">{{ groupe.short_label }}{% if groupe.name %} · {{ groupe.name }}{% endif %}</option>{% endfor %}</select></div></div><div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit" {% if not membres %}disabled{% endif %}>Ajouter à l’activité</button></div>
+    </form></dialog>{% endif %}
+
+    <section class="card stack" aria-labelledby="comments-title"><div><p class="eyebrow">Échanges</p><h3 id="comments-title">Commentaires</h3></div>
+      {% if can_edit %}<form method="post" action="{% url 'groupes:comment_add' classe.pk activite.pk %}" class="stack">
+        {% csrf_token %}{% include "partials/field.html" with field=comment_form.body %}{% include "partials/field.html" with field=comment_form.is_public %}<button class="btn ghost small" type="submit">Publier</button>
+      </form>{% endif %}
+      <ul class="comment-list">{% for note in commentaires %}<li class="comment"><header><strong>{{ note.author.username|default:"Ancien membre" }}</strong><span>{{ note.created_at|date:"d/m/Y H:i" }}</span>{% if note.is_public %}<span class="badge">Public</span>{% endif %}</header><p>{{ note.body }}</p>
+        {% if can_edit %}<form method="post" action="{% url 'groupes:comment_delete' classe.pk activite.pk note.pk %}" data-confirm="Supprimer ce commentaire ?">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer</button></form>{% endif %}</li>
+      {% empty %}<li class="muted small">Aucun commentaire pour le moment.</li>{% endfor %}</ul>
+    </section>
+  </section>
+
+  <dialog class="modal activity-options-modal" id="activity-options-dialog" aria-labelledby="activity-options-title">
+    <div class="modal-head"><div><p class="eyebrow">{{ activite.get_kind_display }}</p><h2 id="activity-options-title">Options de l’activité</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+    <div class="activity-options-content">
+      <section class="activity-option-block"><div class="share-heading"><span class="share-icon">↗</span><div><h3>Lien d’inscription</h3><p>{% if activite.accepting %}Les inscriptions sont ouvertes.{% else %}Les inscriptions sont fermées.{% endif %}</p></div></div>
+        {% if activite.accepting %}<div class="linkbox"><input id="activity-url" readonly value="{{ public_url }}" aria-label="Lien d’inscription"><button class="btn small" type="button" data-copy="#activity-url">Copier</button></div>{% endif %}
+        <span class="badge {% if activite.accepting %}affecte{% else %}en_attente{% endif %}">{% if activite.accepting %}Ouvert{% else %}Fermé{% endif %}</span>
+        {% if can_manage %}<div class="row">{% if activite.accepting %}<a class="btn ghost small" href="{% url 'groupes:activity_poster' classe.pk activite.pk %}">Afficher l’affiche QR</a>{% endif %}<form method="post" action="{% url 'groupes:activity_regenerate' classe.pk activite.pk %}" data-confirm="L’ancien lien d’inscription cessera de fonctionner.">{% csrf_token %}<button class="linkbtn" type="submit">Renouveler le lien</button></form></div>{% endif %}
       </section>
-      <section class="card share-card"><div class="share-heading"><span class="share-icon">◎</span><div><h3>Consultation publique</h3><p>Lecture seule, sans compte</p></div></div>
-        {% if activite.is_public %}<div class="linkbox"><input id="view-url" type="text" readonly value="{{ view_url }}" aria-label="Lien public de consultation"><button class="btn" type="button" data-copy="#view-url">Copier</button></div><a class="small" href="{{ view_url }}" target="_blank" rel="noopener">Ouvrir l’aperçu public</a>
-        {% if can_edit %}<form method="post" action="{% url 'groupes:activity_view_regenerate' classe.pk activite.pk %}" data-confirm="Le lien public actuel sera révoqué.">{% csrf_token %}<button class="linkbtn" type="submit">Révoquer et créer un autre lien</button></form>{% endif %}
-        {% else %}<p class="muted small">Active le partage dans les réglages pour afficher les membres, les groupes et les thèmes aux visiteurs.</p>{% endif %}
+      <section class="activity-option-block"><div class="share-heading"><span class="share-icon">◎</span><div><h3>Consultation publique</h3><p>Lecture seule, sans compte</p></div></div>
+        {% if activite.is_public %}<div class="linkbox"><input id="view-url" readonly value="{{ view_url }}" aria-label="Lien de consultation"><button class="btn small" type="button" data-copy="#view-url">Copier</button></div><a class="small" href="{{ view_url }}" target="_blank" rel="noopener">Ouvrir l’aperçu public</a>
+          {% if can_manage %}<form method="post" action="{% url 'groupes:activity_view_regenerate' classe.pk activite.pk %}" data-confirm="Le lien public actuel sera révoqué.">{% csrf_token %}<button class="linkbtn" type="submit">Révoquer et renouveler le lien</button></form>{% endif %}
+        {% else %}<p class="muted small">Le lien de consultation apparaîtra ici quand le partage sera activé.</p>{% endif %}
       </section>
-      <section class="card export-card"><div><h3>Télécharger un rapport</h3><p class="muted small">Inclut le roster, les groupes et les réponses en attente.</p></div><div class="export-options">
-        <a class="export-option" href="{% url 'groupes:activity_export' classe.pk activite.pk 'pdf' %}"><span class="export-format">PDF</span><span><strong>À partager</strong><small>Mise en page prête à imprimer</small></span><span class="export-arrow" aria-hidden="true">↓</span></a>
-        <a class="export-option" href="{% url 'groupes:activity_export' classe.pk activite.pk 'xlsx' %}"><span class="export-format">XLSX</span><span><strong>À analyser</strong><small>Résumé et listes filtrables</small></span><span class="export-arrow" aria-hidden="true">↓</span></a>
-        <a class="export-option" href="{% url 'groupes:activity_export' classe.pk activite.pk 'docx' %}"><span class="export-format">DOCX</span><span><strong>À modifier</strong><small>Rapport éditable dans Word</small></span><span class="export-arrow" aria-hidden="true">↓</span></a>
-        <a class="export-option" href="{% url 'groupes:activity_export' classe.pk activite.pk 'csv' %}"><span class="export-format">CSV</span><span><strong>À importer</strong><small>Compatible tableurs et outils</small></span><span class="export-arrow" aria-hidden="true">↓</span></a>
+      <section class="activity-option-block"><div class="share-heading"><span class="share-icon">↓</span><div><h3>Télécharger un rapport</h3><p>Exporter les réponses et la répartition.</p></div></div><div class="activity-download-links">
+        <a href="{% url 'groupes:activity_export' classe.pk activite.pk 'pdf' %}">PDF <span>Prêt à partager</span></a><a href="{% url 'groupes:activity_export' classe.pk activite.pk 'xlsx' %}">Excel <span>À analyser</span></a><a href="{% url 'groupes:activity_export' classe.pk activite.pk 'docx' %}">Word <span>À modifier</span></a><a href="{% url 'groupes:activity_export' classe.pk activite.pk 'csv' %}">CSV <span>Tableur</span></a>
       </div></section>
-      {% if can_edit %}<details class="card activity-settings"><summary>Réglages de l’activité</summary><form method="post" action="{% url 'groupes:activity_update' classe.pk activite.pk %}" class="stack">
-        {% csrf_token %}{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}<button class="btn ghost" type="submit">Enregistrer</button>
+      {% if can_edit %}<details class="activity-option-block activity-settings"><summary>Réglages de l’activité</summary><form method="post" action="{% url 'groupes:activity_update' classe.pk activite.pk %}" class="stack">
+        {% csrf_token %}{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}<div class="row"><button class="btn" type="submit">Enregistrer les réglages</button></div>
       </form></details>{% endif %}
-      <section class="card stack" aria-labelledby="comments-title">
-        <h3 id="comments-title">Commentaires</h3>
-        {% if can_edit %}<form method="post" action="{% url 'groupes:comment_add' classe.pk activite.pk %}" class="stack">
-          {% csrf_token %}{% include "partials/field.html" with field=comment_form.body %}{% include "partials/field.html" with field=comment_form.is_public %}<button class="btn ghost small" type="submit">Publier</button>
-        </form>{% endif %}
-        <ul class="comment-list">
-          {% for note in commentaires %}<li class="comment"><header><strong>{{ note.author.username|default:"Ancien membre" }}</strong><span>{{ note.created_at|date:"d/m/Y H:i" }}</span>{% if note.is_public %}<span class="badge">Public</span>{% endif %}</header><p>{{ note.body }}</p>
-            {% if can_edit %}<form method="post" action="{% url 'groupes:comment_delete' classe.pk activite.pk note.pk %}" data-confirm="Supprimer ce commentaire ?">{% csrf_token %}<button class="linkbtn danger" type="submit">Supprimer</button></form>{% endif %}</li>
-          {% empty %}<li class="muted small">Aucun commentaire pour le moment.</li>{% endfor %}
-        </ul>
-      </section>
-      <a class="btn ghost" href="{% url 'groupes:activity_poster' classe.pk activite.pk %}">Affiche QR à imprimer</a>
-      <a class="btn ghost activity-back" href="{% url 'groupes:activities' classe.pk %}">← Toutes les activités</a>
-    </aside>
-  </div>
+      {% if can_manage %}<form class="activity-delete-option" method="post" action="{% url 'groupes:activity_delete' classe.pk activite.pk %}" data-confirm="Supprimer cette activité et ses groupes ? Les membres de la classe seront conservés.">{% csrf_token %}<button class="btn danger small" type="submit">Supprimer l’activité</button></form>{% endif %}
+    </div>
+  </dialog>
 </main>
 {% endblock %}

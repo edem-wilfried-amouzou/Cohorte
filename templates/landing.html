@@ -13,6 +13,7 @@
           <a class="btn" href="{% url 'accounts:signup' %}">Créer mon espace</a>
           <a class="btn ghost" href="{% url 'accounts:login' %}">J'ai déjà un compte</a>
         {% endif %}
+      <a class="btn ghost" href="{% url 'groupes:public_activity_index' %}">Parcourir les exposés publics</a>
       </div>
     </div>
     <div class="preview" aria-hidden="true">
@@ -28,6 +29,7 @@
     <div><h3>Un lien, toute la classe répond</h3><p>Chacun cherche son nom dans la liste, choisit son groupe ou « Pas de groupe ». Les noms hors liste peuvent être refusés ou marqués à vérifier.</p></div>
     <div><h3>Les sans-groupe ressortent</h3><p>Une colonne à part pour ceux qui n'ont pas de groupe ou n'ont pas répondu. Glisse-les dans un groupe, ou laisse l'outil les répartir de façon équilibrée.</p></div>
     <div><h3>Exports prêts à envoyer</h3><p>PDF, Excel, Word et CSV, avec le résumé par groupe, la liste complète et les sans-groupe.</p></div>
+    <div><h3>Documents bien rangés</h3><p>Ajoute les cours et fichiers dans des dossiers, puis partage seulement les ressources que tu veux rendre publiques.</p></div>
   </section>
 </main>
 {% endblock %}

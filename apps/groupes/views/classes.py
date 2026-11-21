@@ -6,6 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import IntegrityError, transaction
 from django.db.models import Count, F, Q
+from django.db.models.functions import Lower
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -90,7 +91,7 @@ def classe_detail(request, pk):
         ),
         "can_edit": request.class_role != Collaborateur.Role.VIEWER,
         "is_owner": request.class_role == "owner",
-        "role_label": dict(Collaborateur.Role.choices).get(request.class_role, "Propriétaire"),
+        "portal_url": request.build_absolute_uri(reverse("groupes:public_portal", args=[classe.token])),
         "tab": "overview",
     })
 
@@ -132,15 +133,18 @@ def collaborator_remove(request, pk, cpk):
 @login_required
 def activities(request, pk):
     classe = _classe(request, pk)
-    data = list(classe.activites.annotate(
+    return render(request, "groupes/activities.html", {
+        "classe": classe, "activites": _activity_rows(classe), "form": ActiviteForm(),
+        "can_edit": request.class_role != Collaborateur.Role.VIEWER, "tab": "activities",
+    })
+
+
+def _activity_rows(classe):
+    return list(classe.activites.annotate(
         n_groupes=Count("groupes", distinct=True),
         n_affectes=Count("participations", filter=Q(participations__groupe__isnull=False), distinct=True),
         n_reponses=Count("participations", filter=Q(participations__responded_at__isnull=False), distinct=True),
     ))
-    return render(request, "groupes/activities.html", {
-        "classe": classe, "activites": data, "form": ActiviteForm(),
-        "can_edit": request.class_role != Collaborateur.Role.VIEWER, "tab": "activities",
-    })
 
 
 @login_required
@@ -155,7 +159,7 @@ def activity_create(request, pk):
         messages.success(request, "Activité créée. Tu peux maintenant créer ses groupes.")
         return redirect("groupes:activity_detail", pk=classe.pk, apk=activity.pk)
     return render(request, "groupes/activities.html", {
-        "classe": classe, "activites": classe.activites.all(), "form": form,
+        "classe": classe, "activites": _activity_rows(classe), "form": form,
         "can_edit": True, "tab": "activities",
     })
 
@@ -170,7 +174,7 @@ def activity_detail(request, pk, apk):
         for item in activity.participations.select_related("membre", "groupe")
     }
     participants = []
-    for member in classe.membres.order_by("search_name"):
+    for member in classe.membres.order_by(Lower("last_name"), Lower("first_name"), "search_name"):
         participation = participation_by_member.get(member.pk)
         participants.append(SimpleNamespace(
             membre=member,
@@ -187,10 +191,14 @@ def activity_detail(request, pk, apk):
     }
     return render(request, "groupes/activity_detail.html", {
         "classe": classe, "activite": activity, "groupes": groups, "participants": participants,
-        "membres": classe.membres.order_by("search_name"), "group_form": GroupeForm(classe=classe, activite=activity),
+        "membres": classe.membres.exclude(
+            participations__activite=activity, participations__groupe__isnull=False,
+        ).distinct().order_by(Lower("last_name"), Lower("first_name"), "search_name"),
+        "group_form": GroupeForm(classe=classe, activite=activity),
         "bulk": BulkGroupsForm(), "form": ActiviteForm(instance=activity), "stats": stats,
         "commentaires": activity.commentaires.select_related("author"), "comment_form": CommentaireForm(),
         "can_edit": request.class_role != Collaborateur.Role.VIEWER,
+        "can_manage": request.class_role in ("owner", Collaborateur.Role.CO_DELEGATE),
         "public_url": request.build_absolute_uri(reverse("groupes:activity_join", args=[activity.token])),
         "view_url": request.build_absolute_uri(reverse("groupes:activity_public_view", args=[activity.view_token])),
         "tab": "activities",

@@ -1,11 +1,18 @@
 import re
 import secrets
+from pathlib import PurePath
+from typing import TYPE_CHECKING
+from uuid import uuid4
 import unicodedata
 
 from django.conf import settings
 from django.db import models
 from django.db.models import F
 from django.utils import timezone
+
+MAX_DOCUMENT_SIZE = 25 * 1024 * 1024
+MAX_CLASS_STORAGE = 250 * 1024 * 1024
+MAX_ARCHIVE_SIZE = 100 * 1024 * 1024
 
 
 def normalize(value: str) -> str:
@@ -67,6 +74,10 @@ class Classe(models.Model):
     public_show_reference = models.BooleanField(
         "Afficher les matricules sur la liste partagée", default=True,
         help_text="Décoche pour masquer les matricules aux personnes qui ouvrent le lien.",
+    )
+    public_documents = models.BooleanField(
+        "Afficher la section Documents sur la page publique", default=False,
+        help_text="Active la rubrique Documents sur la page complète partagée avec la classe.",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -215,6 +226,10 @@ class MembreQuerySet(models.QuerySet):
 
 
 class Membre(models.Model):
+    if TYPE_CHECKING:
+        # Django ajoute cet attribut à partir du ForeignKey `groupe`.
+        groupe_id: int | None
+
     class Sex(models.TextChoices):
         FEMALE = "F", "Femme"
         MALE = "M", "Homme"
@@ -282,6 +297,10 @@ class Membre(models.Model):
 
 
 class Participation(models.Model):
+    if TYPE_CHECKING:
+        # Django ajoute cet attribut à partir du ForeignKey `groupe`.
+        groupe_id: int | None
+
     activite = models.ForeignKey(Activite, on_delete=models.CASCADE, related_name="participations")
     membre = models.ForeignKey(Membre, on_delete=models.CASCADE, related_name="participations")
     groupe = models.ForeignKey(
@@ -353,8 +372,12 @@ class DemandeMembre(models.Model):
     class Meta:
         ordering = ["-submitted_at"]
 
+    @property
+    def status_label(self) -> str:
+        return dict(self.Status.choices).get(self.status, self.status)
+
     def __str__(self):
-        return f"{self.full_name} · {self.get_status_display()}"
+        return f"{self.full_name} · {self.status_label}"
 
 
 class Commentaire(models.Model):
@@ -374,6 +397,140 @@ class Commentaire(models.Model):
 
     def __str__(self):
         return self.body[:60]
+
+
+def document_upload_path(instance, filename):
+    """Range les pièces jointes hors des fichiers statiques, avec un nom imprévisible."""
+    safe_name = PurePath((filename or "document").replace("\\", "/")).name
+    folder_id = instance.folder_id or "racine"
+    return f"documents/{instance.classe_id}/{folder_id}/{uuid4().hex}_{safe_name[:180]}"
+
+
+class DossierDocument(models.Model):
+    """Dossier de fichiers, éventuellement lié à une activité et partagé publiquement."""
+
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="dossiers_documents")
+    activite = models.ForeignKey(
+        Activite, null=True, blank=True, on_delete=models.CASCADE, related_name="dossiers_documents",
+    )
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, on_delete=models.CASCADE, related_name="sous_dossiers",
+    )
+    name = models.CharField("Nom du dossier", max_length=100)
+    is_public = models.BooleanField("Visible sur la page publique", default=False)
+    allow_public_downloads = models.BooleanField("Autoriser le téléchargement public", default=True)
+    allow_public_uploads = models.BooleanField("Autoriser l’ajout public de fichiers", default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["classe", "name"],
+                condition=models.Q(parent__isnull=True, activite__isnull=True),
+                name="dossier_nom_unique_racine_classe",
+            ),
+            models.UniqueConstraint(
+                fields=["classe", "activite", "name"],
+                condition=models.Q(parent__isnull=True, activite__isnull=False),
+                name="dossier_nom_unique_racine_activite",
+            ),
+            models.UniqueConstraint(
+                fields=["classe", "parent", "name"], condition=models.Q(parent__isnull=False),
+                name="dossier_nom_unique_par_parent",
+            ),
+        ]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def public(self) -> bool:
+        current = self
+        if not self.classe.public_documents:
+            return False
+        while current is not None:
+            activity = current.activite
+            if not current.is_public or (activity is not None and not activity.is_public):
+                return False
+            current = current.parent
+        return True
+
+
+class Document(models.Model):
+    """Fichier de classe, rangé dans un dossier ou directement à la racine."""
+
+    classe = models.ForeignKey(Classe, on_delete=models.CASCADE, related_name="documents")
+    folder = models.ForeignKey(DossierDocument, null=True, blank=True, on_delete=models.CASCADE, related_name="documents")
+    file = models.FileField(upload_to=document_upload_path, max_length=255)
+    display_name = models.CharField("Nom du fichier", max_length=255)
+    is_public = models.BooleanField("Visible sur la page publique", default=True)
+    allow_public_downloads = models.BooleanField("Autoriser le téléchargement public", default=True)
+    byte_size = models.PositiveBigIntegerField(default=0)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="documents_ajoutes",
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["display_name", "id"]
+
+    def __str__(self):
+        return self.display_name
+
+
+class RetourPlateforme(models.Model):
+    """Suggestion ou signalement envoyé depuis le site à l’équipe Cohorte."""
+
+    class Kind(models.TextChoices):
+        BUG = "bug", "Signaler un bug"
+        COMPLAINT = "complaint", "Réclamation"
+        SUGGESTION = "suggestion", "Proposition"
+        IMPROVEMENT = "improvement", "Demande d’amélioration"
+        OTHER = "other", "Autre retour"
+
+    class Status(models.TextChoices):
+        NEW = "new", "Nouveau"
+        REVIEWING = "reviewing", "En cours d’examen"
+        PLANNED = "planned", "Planifié"
+        DONE = "done", "Terminé"
+        CLOSED = "closed", "Classé sans suite"
+
+    kind = models.CharField("Type de retour", max_length=20, choices=Kind.choices)
+    subject = models.CharField("Sujet", max_length=140)
+    message = models.TextField("Message", max_length=5000)
+    submitter_name = models.CharField("Nom", max_length=120, blank=True)
+    submitter_email = models.EmailField("E-mail de contact", blank=True)
+    source_path = models.CharField("Page concernée", max_length=255, blank=True)
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="retours_plateforme_envoyes",
+    )
+    status = models.CharField("État", max_length=20, choices=Status.choices, default=Status.NEW)
+    admin_note = models.TextField("Note interne", blank=True)
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="retours_plateforme_traites",
+    )
+    created_at = models.DateTimeField("Envoyé le", auto_now_add=True)
+    updated_at = models.DateTimeField("Mis à jour le", auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["status", "-created_at"], name="retour_status_created_idx")]
+        verbose_name = "retour plateforme"
+        verbose_name_plural = "retours plateforme"
+
+    @property
+    def kind_label(self) -> str:
+        return dict(self.Kind.choices).get(self.kind, self.kind)
+
+    @property
+    def status_label(self) -> str:
+        return dict(self.Status.choices).get(self.status, self.status)
+
+    def __str__(self):
+        return f"{self.kind_label} · {self.subject}"
 
 
 class AuditLog(models.Model):

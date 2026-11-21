@@ -9,17 +9,27 @@
   <link rel="apple-touch-icon" href="{% static 'pwa/apple-touch-icon.png' %}">
   <script src="{% static 'js/theme.js' %}"></script>
   <title>{% block title %}Cohorte{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Cohorte aide les enseignants et les équipes à gérer les classes, les exposés, les groupes et les documents partagés.{% endblock %}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Cohorte">
+  <meta property="og:title" content="{% block og_title %}Cohorte · Classes, exposés et documents{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Cohorte aide les enseignants et les équipes à gérer les classes, les exposés, les groupes et les documents partagés.{% endblock %}">
+  <meta property="og:image" content="{% block og_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'pwa/icon-512.png' %}{% endblock %}">
+  <meta property="og:image:alt" content="Logo de Cohorte">
+  <meta property="og:url" content="{% block og_url %}{{ request.build_absolute_uri }}{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{% block twitter_title %}Cohorte · Classes, exposés et documents{% endblock %}">
+  <meta name="twitter:description" content="{% block twitter_description %}Cohorte aide les enseignants et les équipes à gérer les classes, les exposés, les groupes et les documents partagés.{% endblock %}">
+  <meta name="twitter:image" content="{% block twitter_image %}{{ request.scheme }}://{{ request.get_host }}{% static 'pwa/icon-512.png' %}{% endblock %}">
   <meta name="htmx-config" content='{"includeIndicatorStyles": false, "allowEval": false}'>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23B4532F'/%3E%3Ccircle cx='11' cy='12' r='3.2' fill='white'/%3E%3Ccircle cx='21' cy='12' r='3.2' fill='white'/%3E%3Ccircle cx='16' cy='21' r='3.2' fill='white'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=20261110-3">
-  <link rel="stylesheet" href="{% static 'css/ui.css' %}?v=1">
-  <link rel="stylesheet" href="{% static 'css/theme.css' %}?v=1">
+  <link rel="stylesheet" href="{% static 'css/tailwind.css' %}?v=20261121-7">
   <script src="{% static 'js/vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'js/app.js' %}" defer></script>
-  <script src="{% static 'js/ui.js' %}" defer></script>
+  <script src="{% static 'js/ui.js' %}?v=20261121-1" defer></script>
   <script src="{% static 'js/pwa.js' %}" defer></script>
   {% block head %}{% endblock %}
 </head>
@@ -31,25 +41,26 @@
     <a class="brand" href="{% if user.is_authenticated %}{% url 'groupes:dashboard' %}{% else %}{% url 'landing' %}{% endif %}">{% include "partials/logo.html" %}Cohorte</a>
     <nav class="nav-links" aria-label="Navigation principale">
       {% if user.is_authenticated %}
-        <a href="{% url 'groupes:dashboard' %}">Mes classes</a>
-        <a class="muted small" href="{% url 'accounts:profile' %}">{{ user.username }}</a>
+        {% if user.is_superuser %}<a class="nav-console" href="{% url 'console:home' %}">Console</a>{% endif %}
+        <a class="nav-account" href="{% url 'accounts:profile' %}"><span class="nav-avatar" aria-hidden="true">{{ user.username|first|upper }}</span><span>{{ user.get_full_name|default:user.username }}</span></a>
         <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="linkbtn" type="submit">Se déconnecter</button></form>
       {% else %}
         <a href="{% url 'accounts:login' %}">Se connecter</a>
         <a class="btn small" href="{% url 'accounts:signup' %}">Créer un compte</a>
       {% endif %}
+      <a class="nav-help" href="{% url 'help' %}">Aide</a>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-pressed="false" aria-label="Changer de thème">☾</button>
     </nav>
   </div>
 </header>
 {% endblock %}
 <div id="contenu" tabindex="-1">{% block content %}{% endblock %}</div>
-<footer class="container small muted no-print" style="padding-top:0;padding-bottom:1.5rem"><a href="{% url 'privacy' %}">Confidentialité</a></footer>
+<footer class="container small muted no-print mt-auto pt-0 pb-6"><nav class="footer-links" aria-label="Liens utiles"><a href="{% url 'help' %}">Aide et FAQ</a><a href="{% url 'groupes:feedback' %}?next={{ request.get_full_path|urlencode }}">Signaler un bug ou proposer une amélioration</a><a href="{% url 'privacy' %}">Confidentialité</a><a href="{% url 'terms' %}">Conditions d’utilisation</a></nav></footer>
 <dialog class="modal" id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
   <form method="dialog" class="modal-form">
     <div class="modal-head"><h2 id="confirm-title">Confirmer l'action</h2></div>
     <p id="confirm-message"></p>
-    <div class="row" style="justify-content:flex-end">
+    <div class="row justify-end">
       <button class="btn ghost" type="submit" value="cancel" id="confirm-cancel">Annuler</button>
       <button class="btn" type="submit" value="ok" id="confirm-ok">Confirmer</button>
     </div>

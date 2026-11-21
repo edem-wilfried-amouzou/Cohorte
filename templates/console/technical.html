@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Documentation technique · Console super admin{% endblock %}
+{% block content %}
+<main class="container console-shell technical-docs">
+  <header class="page-head"><div><p class="eyebrow">Documentation interne</p><h1>Référence technique</h1><p class="muted">Architecture, déploiement, sécurité et opérations courantes de Cohorte.</p></div><a class="btn ghost" href="{% url 'console:home' %}">← Console</a></header>
+  <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a href="{% url 'console:users' %}">Utilisateurs</a><a href="{% url 'console:feedbacks' %}">Retours</a><a href="{% url 'console:logs' %}">Journaux</a><a aria-current="page" href="{% url 'console:technical' %}">Documentation</a></nav>
+
+  <section class="technical-section"><h2>Architecture</h2><div class="technical-grid">
+    <article class="card"><h3>Application</h3><p>Django regroupe les comptes dans <code>apps/accounts</code> et les classes, personnes, activités, groupes et documents dans <code>apps/groupes</code>. Les pages sont rendues par les templates Django; les scripts navigateur sont dans <code>static/js</code>.</p></article>
+    <article class="card"><h3>Données et fichiers</h3><p>Le développement utilise SQLite par défaut. Si <code>DATABASE_URL</code> existe, Django utilise la base décrite par cette URL, généralement PostgreSQL en production. Les documents téléversés sont stockés sous <code>MEDIA_ROOT</code>, qui vaut <code>media/</code> par défaut.</p></article>
+  </div></section>
+
+  <section class="technical-section"><h2>Construire et déployer</h2><ol class="technical-steps">
+    <li>Installer les dépendances Python avec <code>pip install -r requirements.txt</code>.</li>
+    <li>Installer Tailwind avec <code>npm ci</code>, puis compiler les styles avec <code>npm run build:css</code>. La source se trouve dans <code>static/src/tailwind.css</code>; le résultat est <code>static/css/tailwind.css</code>.</li>
+    <li>Contrôler la configuration avec <code>python manage.py check --deploy</code>, puis vérifier les migrations avec <code>python manage.py makemigrations --check --dry-run</code>.</li>
+    <li>Appliquer <code>python manage.py migrate</code>, créer la table du cache avec <code>python manage.py createcachetable</code>, puis collecter les fichiers statiques avec <code>python manage.py collectstatic --noinput</code>.</li>
+    <li>L’application WSGI se lance avec Gunicorn sur <code>config.wsgi:application</code>. La sonde <code>/sante/</code> vérifie que l’application et la base répondent.</li>
+  </ol><p class="muted small">Le blueprint Render exécute la compilation CSS et collectstatic pendant la construction, puis les migrations et la création du cache au démarrage.</p></section>
+
+  <section class="technical-section"><h2>Variables d’environnement</h2><div class="table-wrap card flat"><table><thead><tr><th>Variable</th><th>Rôle</th></tr></thead><tbody>
+    <tr><td><code>DJANGO_SECRET_KEY</code></td><td>Clé de signature. Obligatoire quand <code>DJANGO_DEBUG=0</code>; ne jamais la publier.</td></tr>
+    <tr><td><code>DJANGO_DEBUG</code></td><td>Active le mode développement. Garder la valeur à <code>0</code> en production.</td></tr>
+    <tr><td><code>DATABASE_URL</code></td><td>URL de connexion à PostgreSQL ou à une autre base prise en charge par Django.</td></tr>
+    <tr><td><code>DJANGO_ALLOWED_HOSTS</code> et <code>DJANGO_CSRF_TRUSTED_ORIGINS</code></td><td>Hôtes et origines autorisés si l’application utilise un domaine personnalisé.</td></tr>
+    <tr><td><code>DJANGO_ADMIN_URL</code></td><td>Chemin de l’admin Django. La console Cohorte reste disponible sous <code>/console/</code>.</td></tr>
+    <tr><td><code>MEDIA_ROOT</code></td><td>Répertoire des documents. En production, le monter sur un disque persistant ou configurer un stockage objet.</td></tr>
+    <tr><td><code>SENTRY_DSN</code></td><td>Active la remontée d’erreurs vers Sentry, sans collecte de données personnelles par défaut.</td></tr>
+  </tbody></table></div></section>
+
+  <section class="technical-section"><h2>Contrôles de sécurité</h2><ul class="technical-list">
+    <li>Les vues de la console superadmin et les journaux d’administration vérifient le compte actif et le rôle superutilisateur.</li>
+    <li>Les formulaires utilisent la protection CSRF de Django. Les rôles de classe contrôlent les opérations de lecture et de modification.</li>
+    <li>Les liens partagés utilisent des jetons aléatoires. Les liens d’inscription et de consultation sont distincts et peuvent être renouvelés séparément.</li>
+    <li>Les téléversements sont limités à 25 Mo par fichier et 250 Mo par classe; une archive ZIP est limitée à 100 Mo.</li>
+    <li>En production, HTTPS, les cookies sécurisés, HSTS et les en-têtes de sécurité sont configurés par les paramètres Django.</li>
+    <li>Le service worker ne met pas en cache les pages privées ni les données de classe.</li>
+  </ul><p class="msg warning">Les documents de production dépendent du stockage persistant configuré pour <code>MEDIA_ROOT</code>. Prévoir une sauvegarde distincte des fichiers et de la base.</p></section>
+
+  <section class="technical-section"><h2>Diagnostic rapide</h2><ul class="technical-list">
+    <li>État applicatif et base : ouvrir <code>/sante/</code>.</li>
+    <li>Configuration Django en production : lancer <code>python manage.py check --deploy</code>.</li>
+    <li>État des migrations : lancer <code>python manage.py showmigrations</code>.</li>
+    <li>Historique des actions sensibles et modifications de l’admin : consulter l’onglet Journaux.</li>
+    <li>Après un changement de styles ou templates, reconstruire Tailwind, puis exécuter <code>collectstatic</code>.</li>
+  </ul></section>
+</main>
+{% endblock %}

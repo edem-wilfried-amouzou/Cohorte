@@ -36,6 +36,11 @@ class ThrottledLoginView(auth_views.LoginView):
         log_action(self.request, "connexion", user=form.get_user())
         return super().form_valid(form)
 
+    def form_invalid(self, form):
+        attempted_username = (self.request.POST.get("username") or "").strip()[:150]
+        log_action(self.request, "connexion_echec", detail=attempted_username)
+        return super().form_invalid(form)
+
 
 class ThrottledPasswordResetView(auth_views.PasswordResetView):
     template_name = "registration/password_reset_form.html"
