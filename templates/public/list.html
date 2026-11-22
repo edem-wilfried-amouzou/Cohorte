@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% load filters %}
 {% block title %}Liste - {{ classe.name }}{% endblock %}
+{% block meta_description %}Consulte la liste des personnes de {{ classe.name }} et, si les modifications sont ouvertes, corrige tes informations ou ajoute ton nom.{% endblock %}
+{% block og_title %}Liste de {{ classe.name }} · Cohorte{% endblock %}
+{% block og_description %}La liste partagée de {{ classe.name }} sur Cohorte.{% endblock %}
+{% block twitter_title %}Liste de {{ classe.name }} · Cohorte{% endblock %}
+{% block twitter_description %}Consulte la liste partagée de {{ classe.name }}.{% endblock %}
 {% block nav %}{% endblock %}
 {% block content %}
 <main class="public">
@@ -9,6 +14,7 @@
       <p class="brand">{% include "partials/logo.html" %}Cohorte</p>
       <h1>{{ classe.name }}</h1>
       <p>{% if editing %}La liste de la classe. Corrige tes informations ou ajoute ton nom si tu n'y es pas.{% else %}La liste de la classe, en lecture seule.{% endif %}</p>
+      <p><a href="{% url 'groupes:public_portal' classe.token %}">← Retour à l’espace partagé</a></p>
     </header>
 
     {% include "partials/messages.html" %}
@@ -65,7 +71,7 @@
         </table>
       </div>
     </div>
-    <p class="muted small" style="margin-top:0.9rem">{{ members|length }} personne{{ members|length|pluralize }}.</p>
+    <p class="muted small mt-4">{{ members|length }} personne{{ members|length|pluralize }}.</p>
   </div>
 </main>
 

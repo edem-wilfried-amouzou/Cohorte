@@ -1,0 +1,35 @@
+# À copier dans .github/workflows/ci.yml (le token utilisé n'avait pas la portée « workflow »).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_DEBUG: "1"
+      DJANGO_SECRET_KEY: ci-only-not-a-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Lint (erreurs réelles uniquement)
+        run: ruff check . --select E9,F63,F7,F82,F401 --exclude "*/migrations/*"
+      - name: Migrations à jour
+        run: python manage.py makemigrations --check --dry-run
+      - name: Contrôles Django (production)
+        run: DJANGO_DEBUG=0 DJANGO_ALLOWED_HOSTS=example.com python manage.py check --deploy --fail-level ERROR
+      - name: Tests
+        run: python manage.py test --parallel
+      - name: Audit des dépendances
+        run: pip-audit -r requirements.txt

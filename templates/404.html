@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Page introuvable · Cohorte{% endblock %}
+{% block content %}
+<main class="container narrow">
+  <div class="empty">
+    <h1>Page introuvable</h1>
+    <p class="muted mt-2">Le lien est peut-être périmé ou renouvelé, ou tu n'as pas accès à cette page.</p>
+    <p class="mt-4"><a class="btn" href="{% url 'landing' %}">Retour à l'accueil</a></p>
+  </div>
+</main>
+{% endblock %}

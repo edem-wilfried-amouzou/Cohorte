@@ -1,0 +1,16 @@
+{
+  "name": "Cohorte",
+  "short_name": "Cohorte",
+  "description": "Gère tes classes, exposés, projets et groupes.",
+  "lang": "fr",
+  "start_url": "/classes/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffaf7",
+  "theme_color": "#b4532f",
+  "icons": [
+    {"src": "/static/pwa/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/pwa/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/static/pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

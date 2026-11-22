@@ -10,7 +10,7 @@ from django.db.models import F
 from django.utils import timezone
 from django.utils.text import slugify
 
-from ..models import Membre, Participation
+from ..models import Membre
 
 TERRA = "B4532F"
 INK = "1C1F23"
@@ -83,7 +83,7 @@ def collect(classe) -> Dataset:
                     f"{activity.title} · Sans groupe",
                     f"{activity.title} · Sans groupe",
                     "",
-                    activity.theme,
+                    "",
                     None,
                     None,
                     ExportMembers(dataset.sans_groupe),
@@ -167,7 +167,7 @@ def collect_activity(activite) -> Dataset:
             short_label, label, group.name, group.theme, group.presentation_order,
             group.capacity, ExportMembers(grouped[group.pk]),
         ))
-    return Dataset(ExportActivity(activite.title, activite.theme), groups, unassigned, activite.classe.membres.count())
+    return Dataset(ExportActivity(activite.title, ""), groups, unassigned, activite.classe.membres.count())
 
 
 def safe_cell(value):

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}{% if sent %}Merci pour ton retour{% else %}Faire un retour · Cohorte{% endif %}{% endblock %}
+{% block content %}
+<main class="container narrow feedback-page">
+  <a class="feedback-back" href="{{ return_to }}">← Retour à la page précédente</a>
+  <section class="card feedback-card">
+    {% if sent %}
+      <div class="feedback-success-mark" aria-hidden="true">✓</div>
+      <p class="eyebrow">Message envoyé</p>
+      <h1>Merci de nous aider à améliorer Cohorte.</h1>
+      <p class="muted">Ton retour a été transmis à l’équipe. Nous l’examinerons depuis la Console d’administration.</p>
+      <div class="row"><a class="btn" href="{% if user.is_authenticated %}{% url 'groupes:dashboard' %}{% else %}{% url 'landing' %}{% endif %}">Retour à l’accueil</a><a class="btn ghost" href="{{ return_to }}">Retour à ma page</a></div>
+    {% else %}
+      <header class="page-head"><div><p class="eyebrow">Contribution et assistance</p><h1>Un bug, une réclamation ou une idée ?</h1><p class="muted">Décris ce qui se passe ou ce que tu aimerais voir dans Cohorte. Ton message sera transmis à l’équipe.</p></div></header>
+      {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      <form method="post" class="feedback-form">
+        {% csrf_token %}<input type="hidden" name="next" value="{{ return_to }}">
+        <div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+        {% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}
+        <p class="muted small">Le nom et l’e-mail sont facultatifs. Ajoute ton e-mail si tu souhaites que l’équipe puisse te répondre.</p>
+        <div class="modal-actions"><a class="btn ghost" href="{{ return_to }}">Annuler</a><button class="btn" type="submit">Envoyer le retour</button></div>
+      </form>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

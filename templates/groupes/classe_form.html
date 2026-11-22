@@ -8,24 +8,18 @@
   {% else %}
     {% include "partials/classe_head.html" %}
   {% endif %}
-  {% if creating or is_owner %}<form class="card {% if not creating %}stack{% endif %}" method="post" {% if not creating %}style="max-width:620px"{% endif %}>
+  {% if creating or is_owner %}<form class="card w-full {% if not creating %}stack max-w-none{% endif %}" method="post">
     {% csrf_token %}
     {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
     {% include "partials/field.html" with field=form.name %}
     {% include "partials/field.html" with field=form.description %}
     {% include "partials/field.html" with field=form.allow_unlisted %}
-    {% if not creating %}{% include "partials/field.html" with field=form.external_intake_open %}{% endif %}
+    {% if not creating %}{% include "partials/field.html" with field=form.external_intake_open %}{% include "partials/field.html" with field=form.public_show_reference %}{% include "partials/field.html" with field=form.public_documents %}{% endif %}
     <div class="field"><button class="btn" type="submit">{% if creating %}Créer la classe{% else %}Enregistrer{% endif %}</button></div>
-  </form>{% elif not creating %}<section class="card" style="max-width:620px"><h2>Réglages de la classe</h2><p>{{ classe.name }}</p><p class="muted small">Ces réglages sont réservés au propriétaire de la classe.</p></section>{% endif %}
+  </form>{% elif not creating %}<section class="card w-full max-w-none"><h2>Réglages de la classe</h2><p>{{ classe.name }}</p><p class="muted small">Ces réglages sont réservés au propriétaire de la classe.</p></section>{% endif %}
 
   {% if not creating and is_owner %}
-  <div class="grid two" style="margin-top:1.5rem;max-width:1000px">
-    <div class="card">
-      <h2>Supprimer la classe</h2>
-      <p class="muted small" style="margin-bottom:1rem">Efface la classe, ses activités, ses groupes et sa liste. Action définitive.</p>
-      <form method="post" action="{% url 'groupes:delete' classe.pk %}" data-confirm="Supprimer définitivement « {{ classe.name }} » et toutes ses données ?">{% csrf_token %}<button class="btn danger" type="submit">Supprimer la classe</button></form>
-    </div>
-  </div>
+  <div class="class-danger-zone"><form method="post" action="{% url 'groupes:delete' classe.pk %}" data-confirm="Supprimer définitivement « {{ classe.name }} » et toutes ses données ?">{% csrf_token %}<button class="btn danger" type="submit">Supprimer la classe</button></form></div>
   {% endif %}
 </main>
 {% endblock %}

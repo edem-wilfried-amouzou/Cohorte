@@ -1,23 +1,29 @@
 {% extends "base.html" %}
 {% block title %}{{ activite.title }} · {{ classe.name }}{% endblock %}
+{% block meta_description %}Consulte les groupes et la répartition de {{ activite.title }} pour {{ classe.name }} sur Cohorte.{% endblock %}
+{% block og_title %}{{ activite.title }} · {{ classe.name }} — Cohorte{% endblock %}
+{% block og_description %}{{ total_members }} participants répartis en {{ groupes|length }} groupes pour {{ activite.title }}.{% endblock %}
+{% block twitter_title %}{{ activite.title }} · {{ classe.name }} — Cohorte{% endblock %}
+{% block twitter_description %}Consulte les groupes de {{ activite.title }} sur Cohorte.{% endblock %}
+{% block nav %}{% endblock %}
 {% block content %}
 <main class="container public-activity-view">
   <header class="public-view-head">
-    <a class="brand" href="{% url 'landing' %}">{% include "partials/logo.html" %}Cohorte</a>
+    <a class="brand" href="{% url 'groupes:public_portal' classe.token %}?view=activities">{% include "partials/logo.html" %}Cohorte · {{ classe.name }}</a>
     <p class="eyebrow">{{ classe.name }} · {{ activite.get_kind_display }}</p>
     <h1>{{ activite.title }}</h1>
-    {% if activite.theme %}<p class="public-view-theme">{{ activite.theme }}</p>{% endif %}
     <p class="muted">{{ total_members }} participant{{ total_members|pluralize }} · {{ groupes|length }} groupe{{ groupes|length|pluralize }}</p>
   </header>
+  {% include "partials/announcements.html" %}
   {% if selected_group %}<a class="public-back" href="{% url 'groupes:activity_public_view' activite.view_token %}">← Tous les groupes</a>{% endif %}
   <section class="public-group-grid">
     {% for groupe in groupes %}
     <article class="public-group">
       <header><span class="group-number">{{ groupe.number }}</span><div><h2>{{ groupe.name|default:groupe.short_label }}</h2>{% if groupe.theme %}<p>{{ groupe.theme }}</p>{% endif %}</div>{% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}</header>
-      <ul>{% for member in groupe.people %}<li>{{ member.full_name }}</li>{% empty %}<li class="muted">Aucun membre affecté pour le moment.</li>{% endfor %}</ul>
+      <ul>{% for member in groupe.people %}<li>{{ member.full_name }}{% if member.pk == groupe.leader_id %} <span class="badge leader">Chef de groupe</span>{% endif %}</li>{% empty %}<li class="muted">Aucun membre affecté pour le moment.</li>{% endfor %}</ul>
     </article>
     {% empty %}<div class="empty"><h2>Aucun groupe publié</h2><p>L’organisateur n’a pas encore créé de groupes pour cette activité.</p></div>{% endfor %}
   </section>
-  <p class="public-view-foot">Consultation uniquement · Les changements sont gérés par l’organisateur.</p>
+  <p class="public-view-foot"><a href="{% url 'groupes:public_portal' classe.token %}?view=activities">← Retour aux activités de {{ classe.name }}</a><br>Consultation uniquement · Les changements sont gérés par l’organisateur.</p>
 </main>
 {% endblock %}

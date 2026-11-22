@@ -1,11 +1,14 @@
 CSP = "; ".join(
     [
         "default-src 'self'",
-        "script-src 'self' https://cdn.jsdelivr.net",
+        "script-src 'self'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src https://fonts.gstatic.com",
         "img-src 'self' data:",
         "connect-src 'self'",
+        "worker-src 'self'",
+        "manifest-src 'self'",
+        "object-src 'none'",
         "form-action 'self'",
         "base-uri 'self'",
         "frame-ancestors 'none'",

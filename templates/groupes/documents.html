@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Documents · {{ classe.name }} · Cohorte{% endblock %}
+{% block content %}
+<main class="container">
+  {% include "partials/classe_head.html" %}
+
+  <div class="documents-heading">
+    <div>
+      <p class="eyebrow">Fichiers de la classe</p>
+      <h2>{% if current_folder %}{{ current_folder.name }}{% else %}Documents{% endif %}</h2>
+      <nav class="explorer-breadcrumbs" aria-label="Chemin du dossier">
+        <a href="{% url 'groupes:documents' classe.pk %}">Documents</a>
+        {% for folder in breadcrumbs %}<span aria-hidden="true">/</span>{% if not forloop.last %}<a href="?folder={{ folder.pk }}">{{ folder.name }}</a>{% else %}<span aria-current="page">{{ folder.name }}</span>{% endif %}{% endfor %}
+      </nav>
+    </div>
+    <div class="explorer-toolbar">
+      {% if can_edit %}
+        <button class="btn ghost" type="button" data-dialog-open="#create-folder-dialog">+ Nouveau dossier</button>
+        <button class="btn" type="button" data-dialog-open="#upload-document-dialog">Importer un fichier</button>
+      {% endif %}
+      {% if current_folder and current_folder.total_file_count %}<a class="btn ghost" href="{% url 'groupes:document_folder_zip' classe.pk current_folder.pk %}?return_folder={{ current_folder.pk }}">Télécharger le ZIP</a>{% endif %}
+      {% if can_manage and current_folder %}<details class="explorer-menu"><summary aria-label="Actions pour {{ current_folder.name }}">···</summary><div class="explorer-menu-panel">
+        <button type="button" data-dialog-open="#folder-settings-{{ current_folder.pk }}">Visibilité et dépôts</button>
+        <form method="post" action="{% url 'groupes:document_folder_delete' classe.pk current_folder.pk %}" data-confirm="Supprimer ce dossier, ses sous-dossiers et tous ses fichiers ?">{% csrf_token %}<input type="hidden" name="return_folder" value="{{ current_folder.parent_id|default_if_none:'' }}"><button class="danger-text" type="submit">Supprimer le dossier</button></form>
+      </div></details>{% endif %}
+    </div>
+  </div>
+
+  <section class="storage-card" aria-label="Espace de stockage utilisé">
+    <div class="storage-summary"><div><p class="eyebrow">Stockage de la classe</p><strong>{{ used_space|filesizeformat }}</strong><span class="muted"> sur {{ max_space|filesizeformat }}</span></div><span class="badge">{{ usage_percent }} % utilisé</span></div>
+    <div class="storage-track"><span style="width: {{ usage_percent }}%"></span></div>
+    <p class="muted small">25 Mo maximum par fichier. Une archive ZIP peut contenir jusqu’à 100 Mo.</p>
+  </section>
+
+  <section class="explorer-panel" aria-labelledby="explorer-title">
+    <div class="explorer-panel-head"><div><p class="eyebrow">Bibliothèque</p><h2 id="explorer-title">{% if current_folder %}Contenu du dossier{% else %}Dossiers et fichiers{% endif %}</h2></div><span class="badge">{{ folders|length }} dossier{{ folders|length|pluralize }} · {{ documents|length }} fichier{{ documents|length|pluralize }}</span></div>
+
+    {% if folders or documents %}
+      <div class="explorer-list" role="list">
+        {% for folder in folders %}
+          <div class="explorer-entry" role="listitem">
+            <a class="explorer-item" href="?folder={{ folder.pk }}" aria-label="Ouvrir le dossier {{ folder.name }}">
+              <span class="explorer-icon folder-icon" aria-hidden="true">▰</span>
+              <span class="explorer-item-copy"><strong>{{ folder.name }}</strong><small>{% if folder.activite %}{{ folder.activite.title }}{% else %}Documents généraux{% endif %} · {{ folder.subfolder_count }} sous-dossier{{ folder.subfolder_count|pluralize }} · {{ folder.file_count }} fichier{{ folder.file_count|pluralize }}</small></span>
+              <span class="badge {% if folder.public_access %}affecte{% endif %}">{% if folder.public_access %}Public{% else %}Privé{% endif %}</span>
+              <span class="explorer-chevron" aria-hidden="true">›</span>
+            </a>
+            <details class="explorer-menu"><summary aria-label="Actions pour {{ folder.name }}">···</summary><div class="explorer-menu-panel">
+              <a href="?folder={{ folder.pk }}">Ouvrir</a>
+              {% if folder.total_file_count %}<a href="{% url 'groupes:document_folder_zip' classe.pk folder.pk %}?return_folder={% if current_folder %}{{ current_folder.pk }}{% endif %}">Télécharger en ZIP</a>{% endif %}
+              {% if can_manage %}<button type="button" data-dialog-open="#folder-settings-{{ folder.pk }}">Visibilité et dépôts</button>
+                <form method="post" action="{% url 'groupes:document_folder_delete' classe.pk folder.pk %}" data-confirm="Supprimer ce dossier, ses sous-dossiers et tous ses fichiers ?">{% csrf_token %}<input type="hidden" name="return_folder" value="{% if current_folder %}{{ current_folder.pk }}{% endif %}"><button class="danger-text" type="submit">Supprimer</button></form>
+              {% endif %}
+            </div></details>
+          </div>
+        {% endfor %}
+
+        {% for document in documents %}
+          <div class="explorer-entry" role="listitem">
+            <a class="explorer-item" href="{% if document.previewable %}{% url 'groupes:document_download' classe.pk document.pk %}?inline=1{% else %}{% url 'groupes:document_download' classe.pk document.pk %}{% endif %}" {% if document.previewable %}data-document-preview data-preview-url="{% url 'groupes:document_download' classe.pk document.pk %}?inline=1" data-preview-title="{{ document.display_name }}" data-preview-downloadable="true"{% endif %}>
+              <span class="explorer-icon file-icon" aria-hidden="true">↧</span>
+              <span class="explorer-item-copy"><strong>{{ document.display_name }}</strong><small>Ajouté le {{ document.uploaded_at|date:"d/m/Y" }} · {{ document.byte_size|filesizeformat }}</small></span>
+              <span class="badge {% if document.public_access %}affecte{% endif %}">{% if document.public_access %}Public{% else %}Privé{% endif %}</span>
+              <span class="explorer-chevron" aria-hidden="true">{% if document.previewable %}›{% else %}↓{% endif %}</span>
+            </a>
+            <a class="btn ghost small explorer-download" href="{% url 'groupes:document_download' classe.pk document.pk %}" aria-label="Télécharger {{ document.display_name }}" title="Télécharger">↓</a>
+            {% if can_manage %}<details class="explorer-menu"><summary aria-label="Actions pour {{ document.display_name }}">···</summary><div class="explorer-menu-panel">
+              <a href="{% url 'groupes:document_download' classe.pk document.pk %}">Télécharger</a>
+              <button type="button" data-dialog-open="#document-settings-{{ document.pk }}">Visibilité</button>
+              <form method="post" action="{% url 'groupes:document_delete' classe.pk document.pk %}" data-confirm="Supprimer ce fichier ?">{% csrf_token %}<input type="hidden" name="return_folder" value="{{ current_folder.pk }}"><button class="danger-text" type="submit">Supprimer</button></form>
+            </div></details>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="explorer-empty"><span class="folder-icon" aria-hidden="true">▰</span><h3>{% if current_folder %}Ce dossier est vide{% else %}Aucun dossier pour le moment{% endif %}</h3><p>{% if can_edit %}Crée un dossier pour commencer à organiser les cours et les fichiers.{% else %}Les documents partagés apparaîtront ici.{% endif %}</p>
+        {% if can_edit %}<button class="btn" type="button" data-dialog-open="#create-folder-dialog">Créer un dossier</button>{% endif %}
+      </div>
+    {% endif %}
+  </section>
+</main>
+
+<dialog class="modal document-preview-modal" id="document-preview-dialog" aria-labelledby="document-preview-title">
+  <div class="modal-head"><div><p class="eyebrow">Aperçu du document</p><h2 id="document-preview-title">Document</h2></div><div class="row"><a class="btn ghost small" data-preview-download href="#">Télécharger</a><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div></div>
+  <iframe class="document-preview-frame" title="Aperçu du document" src="about:blank"></iframe>
+</dialog>
+
+{% if can_edit %}
+<dialog class="modal form-modal document-modal" id="create-folder-dialog" aria-labelledby="create-folder-title" {% if create_folder_open %}data-open-on-load{% endif %}>
+  <div class="modal-head"><div><p class="eyebrow">Organisation</p><h2 id="create-folder-title">Nouveau dossier</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+  <form method="post" action="{% url 'groupes:documents_manage' classe.pk %}" class="modal-form">
+    {% csrf_token %}<input type="hidden" name="action" value="create_folder"><input type="hidden" name="return_folder" value="{% if current_folder %}{{ current_folder.pk }}{% endif %}">
+    {% if folder_form.errors %}<div class="msg error" role="alert">{{ folder_form.errors }}</div>{% endif %}
+    {% if current_folder %}<input type="hidden" name="parent" value="{{ current_folder.pk }}"><input type="hidden" name="activite" value="{{ current_folder.activite_id|default_if_none:'' }}">
+    {% else %}<input type="hidden" name="parent" value="">{% include "partials/field.html" with field=folder_form.activite %}{% endif %}
+    {% include "partials/field.html" with field=folder_form.name %}
+    {% if can_publish %}<div class="permission-fields">{% include "partials/field.html" with field=folder_form.is_public %}{% include "partials/field.html" with field=folder_form.allow_public_downloads %}{% include "partials/field.html" with field=folder_form.allow_public_uploads %}</div>{% endif %}
+    <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Créer le dossier</button></div>
+  </form>
+</dialog>
+
+<dialog class="modal form-modal document-modal" id="upload-document-dialog" aria-labelledby="upload-document-title" {% if upload_form_open %}data-open-on-load{% endif %}>
+  <div class="modal-head"><div><p class="eyebrow">Bibliothèque</p><h2 id="upload-document-title">Importer un fichier</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+  <form method="post" action="{% url 'groupes:documents_manage' classe.pk %}" enctype="multipart/form-data" class="modal-form">
+    {% csrf_token %}<input type="hidden" name="action" value="upload"><input type="hidden" name="return_folder" value="{% if current_folder %}{{ current_folder.pk }}{% endif %}">
+    {% if upload_form.errors %}<div class="msg error" role="alert">{{ upload_form.errors }}</div>{% endif %}
+    {% if current_folder %}<input type="hidden" name="folder" value="{{ current_folder.pk }}">{% else %}{% include "partials/field.html" with field=upload_form.folder %}{% endif %}
+    {% include "partials/field.html" with field=upload_form.file %}
+    <p class="muted small">Tous les types de fichiers sont acceptés, jusqu’à 25 Mo par fichier.</p>
+    <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Importer</button></div>
+  </form>
+</dialog>
+{% endif %}
+
+{% if can_manage %}
+  {% for folder in all_folders %}<dialog class="modal form-modal document-modal" id="folder-settings-{{ folder.pk }}" aria-labelledby="folder-settings-title-{{ folder.pk }}">
+    <div class="modal-head"><div><p class="eyebrow">Dossier</p><h2 id="folder-settings-title-{{ folder.pk }}">{{ folder.name }}</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+    <form method="post" action="{% url 'groupes:document_folder_access' classe.pk folder.pk %}" class="modal-form permission-fields">
+      {% csrf_token %}<input type="hidden" name="return_folder" value="{% if current_folder %}{{ current_folder.pk }}{% endif %}">
+      <label class="check"><input type="checkbox" name="is_public" {% if folder.is_public %}checked{% endif %}><span>Visible sur la page publique</span></label>
+      <label class="check"><input type="checkbox" name="allow_public_downloads" {% if folder.allow_public_downloads %}checked{% endif %}><span>Autoriser le téléchargement et le ZIP</span></label>
+      <label class="check"><input type="checkbox" name="allow_public_uploads" {% if folder.allow_public_uploads %}checked{% endif %}><span>Autoriser les dépôts depuis la page publique</span></label>
+      <p class="muted small">Les sous-dossiers suivent aussi la visibilité de leurs dossiers parents.</p>
+      <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Enregistrer</button></div>
+    </form>
+  </dialog>{% endfor %}
+  {% for document in documents %}<dialog class="modal form-modal document-modal" id="document-settings-{{ document.pk }}" aria-labelledby="document-settings-title-{{ document.pk }}">
+    <div class="modal-head"><div><p class="eyebrow">Fichier</p><h2 id="document-settings-title-{{ document.pk }}">Visibilité</h2><p class="muted small">{{ document.display_name }}</p></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+    <form method="post" action="{% url 'groupes:document_access' classe.pk document.pk %}" class="modal-form">
+      {% csrf_token %}<input type="hidden" name="return_folder" value="{{ current_folder.pk }}">
+      <label class="check"><input type="checkbox" name="is_public" {% if document.is_public %}checked{% endif %}><span>Afficher ce fichier sur la page publique complète</span></label>
+      <label class="check"><input type="checkbox" name="allow_public_downloads" {% if document.allow_public_downloads %}checked{% endif %}><span>Autoriser son téléchargement public</span></label>
+      <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Enregistrer</button></div>
+    </form>
+  </dialog>{% endfor %}
+{% endif %}
+{% endblock %}

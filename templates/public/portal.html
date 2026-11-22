@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ classe.name }} · Espace partagé{% endblock %}
+{% block meta_description %}Espace partagé de {{ classe.name }} sur Cohorte : consulte la liste, les exposés et les documents de la classe.{% endblock %}
+{% block og_title %}{{ classe.name }} · Espace partagé Cohorte{% endblock %}
+{% block og_description %}Liste de classe, exposés et documents partagés pour {{ classe.name }}.{% endblock %}
+{% block og_url %}{{ portal_url }}{% endblock %}
+{% block twitter_title %}{{ classe.name }} · Espace partagé Cohorte{% endblock %}
+{% block twitter_description %}Liste de classe, exposés et documents partagés pour {{ classe.name }}.{% endblock %}
+{% block nav %}{% endblock %}
+{% block content %}
+<main class="container public-portal">
+  <article class="public-portal-shell" aria-labelledby="portal-title">
+    <header class="public-portal-head">
+      <div class="portal-brand-row"><a class="brand" href="{% url 'groupes:public_portal' classe.token %}">{% include "partials/logo.html" %}Cohorte</a><span class="portal-live-badge"><i aria-hidden="true"></i> Espace partagé</span></div>
+      <p class="eyebrow">Classe · {{ classe.name }}</p>
+      <h1 id="portal-title">{{ classe.name }}</h1>
+      {% if classe.description %}<p class="portal-description">{{ classe.description }}</p>{% else %}<p class="portal-description">Retrouve ici la liste de la classe, ses activités et ses ressources partagées.</p>{% endif %}
+      <nav class="portal-shortcuts" aria-label="Rubriques de l’espace partagé">
+        <a href="?view=members" {% if view == 'members' %}aria-current="page"{% endif %}>Liste de la classe <span>{{ member_count }}</span></a>
+        {% if public_documents_enabled %}<a href="?view=documents" {% if view == 'documents' %}aria-current="page"{% endif %}>Bibliothèque <span>{{ all_public_folders|length }}</span></a>{% endif %}
+        <a href="?view=activities" {% if view == 'activities' %}aria-current="page"{% endif %}>Exposés et projets <span>{{ activites|length }}</span></a>
+      </nav>
+    </header>
+
+    {% include "partials/messages.html" %}
+
+    {% if view == 'members' %}
+      {% include "public/_member_directory.html" %}
+    {% elif view == 'documents' and public_documents_enabled %}
+      <section class="portal-active-view" id="portal-documents" aria-labelledby="portal-documents-title">
+        <div class="portal-section-heading"><div><p class="eyebrow">Ressources partagées</p><h2 id="portal-documents-title">{% if current_folder %}{{ current_folder.name }}{% else %}Bibliothèque{% endif %}</h2><p class="muted">Consulte les fichiers publiés{% if current_folder and current_folder.allow_public_uploads %} ou dépose un document dans ce dossier{% endif %}.</p></div><span class="badge">{{ all_public_folders|length }} dossier{{ all_public_folders|length|pluralize }} · {{ documents|length }} fichier{{ documents|length|pluralize }}</span></div>
+        <nav class="explorer-breadcrumbs portal-breadcrumbs" aria-label="Chemin de la bibliothèque">
+          <a href="?view=documents">Tous les dossiers</a>
+          {% for folder in folder_breadcrumbs %}<span aria-hidden="true">/</span>{% if not forloop.last %}<a href="?view=documents&amp;folder={{ folder.pk }}">{{ folder.name }}</a>{% else %}<span aria-current="page">{{ folder.name }}</span>{% endif %}{% endfor %}
+        </nav>
+
+        <div class="portal-explorer">
+          {% for folder in folders %}<div class="portal-explorer-row">
+            <a class="portal-explorer-link" href="?view=documents&amp;folder={{ folder.pk }}" aria-label="Ouvrir le dossier {{ folder.name }}"><span class="portal-folder-icon" aria-hidden="true">▰</span><span><strong>{{ folder.name }}</strong><small>{% if folder.activite %}{{ folder.activite.title }}{% else %}Documents généraux{% endif %} · {{ folder.subfolder_count }} sous-dossier{{ folder.subfolder_count|pluralize }} · {{ folder.visible_documents|length }} fichier{{ folder.visible_documents|length|pluralize }}</small></span><span aria-hidden="true">›</span></a>
+            {% if folder.downloadable_count %}<a class="btn ghost small portal-zip-link" href="{% url 'groupes:public_document_folder_zip' classe.token folder.pk %}">ZIP</a>{% endif %}
+          </div>{% endfor %}
+
+          {% for document in documents %}<div class="portal-explorer-row portal-file-row">
+            <span class="portal-file-icon" aria-hidden="true">↧</span><span class="portal-file-copy"><strong>{{ document.display_name }}</strong><small>{{ document.byte_size|filesizeformat }}</small></span>
+            {% if document.public_previewable %}<a class="btn ghost small" href="{% url 'groupes:public_document_download' classe.token document.pk %}?inline=1" data-document-preview data-preview-url="{% url 'groupes:public_document_download' classe.token document.pk %}?inline=1" data-preview-title="{{ document.display_name }}" data-preview-downloadable="{{ document.public_downloadable|yesno:'true,false' }}">Aperçu</a>{% endif %}
+            {% if document.public_downloadable %}<a class="btn ghost small" href="{% url 'groupes:public_document_download' classe.token document.pk %}">Télécharger</a>{% elif not document.public_previewable %}<span class="badge">Lecture indisponible</span>{% endif %}
+          </div>{% endfor %}
+
+          {% if not folders and not documents %}<p class="muted small portal-empty-note">{% if current_folder %}Aucun sous-dossier ni fichier ici.{% else %}Aucun dossier ni fichier n’est actuellement partagé.{% endif %}</p>{% endif %}
+        </div>
+
+        {% if current_folder.allow_public_uploads %}<form method="post" enctype="multipart/form-data" action="{% url 'groupes:public_document_upload' classe.token current_folder.pk %}" class="portal-upload-form">
+          {% csrf_token %}<input type="hidden" name="folder" value="{{ current_folder.pk }}">
+          <div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+          <label for="public-file-{{ current_folder.pk }}">Déposer un fichier dans « {{ current_folder.name }} » (25 Mo maximum)</label>
+          <div class="portal-block-actions"><input id="public-file-{{ current_folder.pk }}" type="file" name="file" required><button class="btn" type="submit">Envoyer</button></div>
+        </form>{% endif %}
+      </section>
+    {% elif view == 'activities' %}
+      <section class="portal-active-view" id="portal-activities" aria-labelledby="portal-activities-title">
+        {% if selected_activity %}
+          <div class="portal-section-heading"><div><p class="eyebrow">{{ selected_activity.get_kind_display }} · {{ classe.name }}</p><h2 id="portal-activities-title">{{ selected_activity.title }}</h2><p class="muted">{{ total_group_members }} participant{{ total_group_members|pluralize }} · {{ selected_groups|length }} groupe{{ selected_groups|length|pluralize }}</p></div><a class="btn ghost" href="?view=activities">← Toutes les activités</a></div>
+          <div class="public-group-grid">
+            {% for groupe in selected_groups %}<article class="public-group">
+              <header><span class="group-number">{{ groupe.number }}</span><div><h2>{{ groupe.name|default:groupe.short_label }}</h2>{% if groupe.theme %}<p>{{ groupe.theme }}</p>{% endif %}</div>{% if groupe.presentation_order %}<span class="order-tag">Passage {{ groupe.presentation_order }}</span>{% endif %}</header>
+              <ul>{% for member in groupe.people %}<li>{{ member.full_name }}{% if member.pk == groupe.leader_id %} <span class="badge leader">Chef de groupe</span>{% endif %}</li>{% empty %}<li class="muted">Aucun membre affecté pour le moment.</li>{% endfor %}</ul>
+            </article>{% empty %}<div class="portal-empty"><h3>Aucun groupe publié</h3><p>L’organisateur n’a pas encore créé de groupes pour cette activité.</p></div>{% endfor %}
+          </div>
+        {% else %}
+          <div class="portal-section-heading"><div><p class="eyebrow">Activités de la classe</p><h2 id="portal-activities-title">Exposés et projets</h2><p class="muted">Choisis une activité pour voir ses groupes ou participer si les inscriptions sont ouvertes.</p></div><span class="badge">{{ activites|length }}</span></div>
+          <div class="portal-activity-list">
+            {% for activity in activites %}<article class="portal-activity-row">
+              <span class="directory-mark" aria-hidden="true">{{ activity.get_kind_display|first }}</span>
+              <div class="portal-activity-copy"><small class="eyebrow">{{ activity.get_kind_display }}</small><h3>{{ activity.title }}</h3>
+                {% if activity.is_public %}<p>{{ activity.group_count }} groupes · {{ activity.participant_count }} participant{{ activity.participant_count|pluralize }}</p>{% elif activity.accepting %}<p>Les inscriptions sont ouvertes.</p>{% else %}<p>Activité publiée par la classe.</p>{% endif %}
+              </div>
+              <div class="portal-block-actions">
+                {% if activity.accepting %}<a class="btn small" href="{% url 'groupes:activity_join' activity.token %}">Participer</a>{% endif %}
+                {% if activity.is_public %}<a class="btn ghost small" href="?view=activities&amp;activity={{ activity.pk }}">Voir les groupes</a>{% endif %}
+              </div>
+            </article>{% empty %}<div class="portal-empty"><h3>Aucune activité disponible</h3><p>Les exposés publiés ou ouverts aux inscriptions apparaîtront ici.</p></div>{% endfor %}
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <footer class="portal-card-foot"><span>Géré par l’équipe de {{ classe.name }}</span><a href="{% url 'help' %}">Aide Cohorte</a></footer>
+  </article>
+</main>
+
+<dialog class="modal document-preview-modal" id="document-preview-dialog" aria-labelledby="document-preview-title">
+  <div class="modal-head"><div><p class="eyebrow">Aperçu du document</p><h2 id="document-preview-title">Document</h2></div><div class="row"><a class="btn ghost small" data-preview-download href="#">Télécharger</a><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div></div>
+  <iframe class="document-preview-frame" title="Aperçu du document" src="about:blank"></iframe>
+</dialog>
+{% endblock %}

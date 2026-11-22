@@ -3,9 +3,9 @@ services:
     name: cohorte
     runtime: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
-    startCommand: python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
-    healthCheckPath: /
+    buildCommand: pip install -r requirements.txt && npm ci --include=dev && npm run build:css && python manage.py collectstatic --noinput --ignore=src/tailwind.css
+    startCommand: python manage.py migrate --noinput && python manage.py createcachetable && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /sante/
     envVars:
       - key: DJANGO_DEBUG
         value: "0"
@@ -17,3 +17,27 @@ services:
         sync: false
       - key: DB_CONN_MAX_AGE
         value: "60"
+      - key: USE_R2_STORAGE
+        value: "0"
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: TRUSTED_PROXY_COUNT
+        value: "1"
+      - key: DJANGO_ADMIN_URL
+        sync: false
+      - key: SIGNUP_INVITE_CODE
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false

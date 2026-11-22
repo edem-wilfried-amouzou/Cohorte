@@ -3,14 +3,20 @@
 {% block content %}
 <main class="container">
   {% include "partials/classe_head.html" %}
-  <div class="page-head"><div><p class="eyebrow">Accès partagé</p><h2>Équipe de la classe</h2><p>Ajoute uniquement des personnes qui ont déjà un compte Cohorte.</p></div></div>
-  <div class="team-layout">
-    <form method="post" class="card team-invite">
-      {% csrf_token %}<h3>Ajouter un collaborateur</h3>
-      {% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}
-      <button class="btn" type="submit">Ajouter à l’équipe</button>
+  <div class="page-head team-page-head"><div><p class="eyebrow">Accès partagé</p><h2>Équipe de la classe</h2><p>Ajoute uniquement des personnes qui ont déjà un compte Cohorte.</p></div>
+    <button class="btn" type="button" data-dialog-open="#collaborator-dialog">+ Ajouter un collaborateur</button>
+  </div>
+  <dialog class="modal form-modal" id="collaborator-dialog" aria-labelledby="collaborator-title" {% if form.errors %}data-open-on-load{% endif %}>
+    <div class="modal-head"><div><p class="eyebrow">Accès partagé</p><h2 id="collaborator-title">Ajouter un collaborateur</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+    <form method="post" class="modal-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
+      <div class="modal-fields">{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}</div>
       <p class="muted small">La personne retrouvera cette classe dans son tableau de bord dès sa prochaine connexion.</p>
+      <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Ajouter à l’équipe</button></div>
     </form>
+  </dialog>
+  <div class="team-layout team-list-layout">
     <section class="card team-list"><h3>Accès actuels</h3>
       <div class="table-wrap"><table><thead><tr><th>Compte</th><th>Rôle</th><th></th></tr></thead><tbody>
         <tr><td><strong>{{ classe.owner.get_full_name|default:classe.owner.username }}</strong><div class="small muted">Propriétaire</div></td><td>Accès complet</td><td></td></tr>

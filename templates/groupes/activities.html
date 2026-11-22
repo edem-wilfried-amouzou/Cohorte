@@ -3,15 +3,24 @@
 {% block content %}
 <main class="container">
   {% include "partials/classe_head.html" %}
-  <div class="page-head">
+  <div class="page-head activity-page-head">
     <div><h2>Activités de la classe</h2><p>Chaque activité possède ses groupes, ses réponses et son lien de partage.</p></div>
+    {% if can_edit %}<button class="btn" type="button" data-dialog-open="#activity-create-dialog">+ Nouvelle activité</button>{% endif %}
   </div>
-  <section class="activity-layout">
-    <div class="activity-list">
+  {% if can_edit %}<dialog class="modal form-modal" id="activity-create-dialog" aria-labelledby="activity-create-title" {% if form.errors %}data-open-on-load{% endif %}>
+    <div class="modal-head"><div><p class="eyebrow">Exposés et projets</p><h2 id="activity-create-title">Nouvelle activité</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+    <form method="post" action="{% url 'groupes:activity_create' classe.pk %}" class="modal-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors.0 }}</div>{% endif %}
+      <div class="modal-fields">{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}</div>
+      <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Créer l’activité</button></div>
+    </form>
+  </dialog>{% endif %}
+  <section class="activity-list activities-page">
       {% for activite in activites %}
       <a class="activity-row" href="{% url 'groupes:activity_detail' classe.pk activite.pk %}">
         <span class="activity-mark">{% if activite.kind == 'presentation' %}EX{% elif activite.kind == 'project' %}PR{% else %}AC{% endif %}</span>
-        <span class="activity-info"><strong>{{ activite.title }}</strong><small>{{ activite.get_kind_display }}{% if activite.theme %} · {{ activite.theme }}{% endif %}</small></span>
+        <span class="activity-info"><strong>{{ activite.title }}</strong><small>{{ activite.get_kind_display }}</small></span>
         <span class="activity-count">{{ activite.n_groupes }} groupes</span>
         <span class="activity-count">{{ activite.n_reponses }} réponses</span>
         {% if activite.accepting %}<span class="badge affecte">Ouvert</span>{% else %}<span class="badge en_attente">Fermé</span>{% endif %}
@@ -19,12 +28,6 @@
       {% empty %}
       <div class="empty activity-empty"><h2>Aucun exposé ou projet pour l’instant</h2><p>Crée une activité, définis le nombre d’équipes, puis partage son lien avec la classe.</p></div>
       {% endfor %}
-    </div>
-    {% if can_edit %}<form method="post" action="{% url 'groupes:activity_create' classe.pk %}" class="card activity-create">
-      {% csrf_token %}<h2>Nouvelle activité</h2>
-      {% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}
-      <button class="btn" type="submit">Créer l’activité</button>
-    </form>{% endif %}
   </section>
 </main>
 {% endblock %}

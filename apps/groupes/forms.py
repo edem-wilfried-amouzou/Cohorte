@@ -3,13 +3,16 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
-from .models import Activite, ChampMembre, Classe, Collaborateur, Groupe, Membre, compose_full_name, normalize
+from .models import (
+    MAX_DOCUMENT_SIZE, Activite, ChampMembre, Classe, Collaborateur, Commentaire, Document,
+    DossierDocument, Groupe, Membre, RetourPlateforme, compose_full_name,
+)
 
 
 class ClasseForm(forms.ModelForm):
     class Meta:
         model = Classe
-        fields = ["name", "description", "allow_unlisted", "external_intake_open"]
+        fields = ["name", "description", "allow_unlisted", "external_intake_open", "public_show_reference", "public_documents"]
         widgets = {
             "deadline": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
         }
@@ -51,7 +54,7 @@ class BulkGroupsForm(forms.Form):
 class ActiviteForm(forms.ModelForm):
     class Meta:
         model = Activite
-        fields = ["title", "kind", "theme", "is_open", "deadline", "is_public"]
+        fields = ["title", "kind", "is_open", "deadline", "is_public"]
         widgets = {
             "deadline": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
         }
@@ -59,7 +62,7 @@ class ActiviteForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["deadline"].input_formats = ["%Y-%m-%dT%H:%M"]
-        self.fields["is_public"].help_text = "Le lien de consultation affiche les thèmes, les groupes et leurs membres, sans permettre de modifier les réponses."
+        self.fields["is_public"].help_text = "Le lien de consultation affiche les groupes, leurs thèmes et leurs membres, sans permettre de modifier les réponses."
 
 
 class CollaborateurForm(forms.Form):
@@ -229,3 +232,125 @@ class ImportForm(forms.Form):
         if not data.get("file") and not (data.get("text") or "").strip():
             raise forms.ValidationError("Choisis un fichier ou colle une liste de noms.")
         return data
+
+class CommentaireForm(forms.ModelForm):
+    class Meta:
+        model = Commentaire
+        fields = ["body", "is_public"]
+        labels = {"body": "Commentaire"}
+        widgets = {"body": forms.Textarea(attrs={"rows": 3, "maxlength": 1000, "placeholder": "Consignes, rappel, changement de salle…"})}
+
+
+class DossierDocumentForm(forms.ModelForm):
+    class Meta:
+        model = DossierDocument
+        fields = ["name", "activite", "parent", "is_public", "allow_public_downloads", "allow_public_uploads"]
+
+    def __init__(self, *args, classe=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.classe = classe
+        self.fields["activite"].queryset = classe.activites.order_by("title") if classe else Activite.objects.none()
+        self.fields["activite"].required = False
+        self.fields["activite"].empty_label = "Tous les documents de la classe"
+        self.fields["parent"].queryset = classe.dossiers_documents.order_by("name") if classe else DossierDocument.objects.none()
+        self.fields["parent"].required = False
+        self.fields["parent"].empty_label = "Aucun (dossier principal)"
+        self.fields["allow_public_uploads"].help_text = "Les visiteurs pourront ajouter des fichiers depuis la page publique de la classe."
+        self.fields["allow_public_downloads"].help_text = (
+            "Désactive cette option pour ouvrir les fichiers compatibles dans le navigateur et masquer le ZIP. "
+            "Un aperçu affiché dans un navigateur peut toujours être enregistré par le visiteur."
+        )
+
+    def clean_name(self):
+        name = " ".join("".join(character for character in self.cleaned_data["name"] if character.isprintable()).split())
+        if "/" in name or "\\" in name or name in {".", ".."}:
+            raise forms.ValidationError("Le nom du dossier ne peut pas contenir de chemin de fichier.")
+        return name
+
+    def clean(self):
+        cleaned = super().clean()
+        activity, parent = cleaned.get("activite"), cleaned.get("parent")
+        if self.classe and activity and activity.classe_id != self.classe.pk:
+            self.add_error("activite", "Choisis une activité de cette classe.")
+        if parent:
+            if self.classe and parent.classe_id != self.classe.pk:
+                self.add_error("parent", "Choisis un dossier de cette classe.")
+            if parent.pk == self.instance.pk:
+                self.add_error("parent", "Un dossier ne peut pas être son propre parent.")
+            if activity and parent.activite_id != activity.pk:
+                self.add_error("parent", "Le sous-dossier doit rester dans la même activité.")
+            if not activity and parent.activite_id:
+                self.add_error("parent", "Le sous-dossier doit rester dans les documents généraux.")
+            if cleaned.get("is_public") and not parent.is_public:
+                self.add_error("is_public", "Rends d’abord le dossier parent visible sur la page publique.")
+        if not cleaned.get("is_public"):
+            cleaned["allow_public_uploads"] = False
+        return cleaned
+
+
+class DossierDocumentAccessForm(forms.ModelForm):
+    class Meta:
+        model = DossierDocument
+        fields = ["is_public", "allow_public_downloads", "allow_public_uploads"]
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("is_public") and self.instance.parent_id and not self.instance.parent.is_public:
+            self.add_error("is_public", "Rends d’abord le dossier parent visible sur la page publique.")
+        if not cleaned.get("is_public"):
+            cleaned["allow_public_uploads"] = False
+            cleaned["allow_public_downloads"] = True
+        return cleaned
+
+
+class DocumentAccessForm(forms.ModelForm):
+    class Meta:
+        model = Document
+        fields = ["is_public", "allow_public_downloads"]
+
+
+class DocumentUploadForm(forms.ModelForm):
+    class Meta:
+        model = Document
+        fields = ["folder", "file"]
+
+    def __init__(self, *args, classe=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.classe = classe
+        self.fields["folder"].queryset = classe.dossiers_documents.order_by("name") if classe else DossierDocument.objects.none()
+        self.fields["folder"].required = False
+        self.fields["folder"].empty_label = "À la racine"
+        self.fields["folder"].help_text = "Choisis un dossier ou laisse ce champ sur « À la racine »."
+
+    def clean_file(self):
+        uploaded = self.cleaned_data["file"]
+        if uploaded.size > MAX_DOCUMENT_SIZE:
+            raise forms.ValidationError("Chaque fichier doit faire au maximum 25 Mo.")
+        return uploaded
+
+
+class RetourPlateformeForm(forms.ModelForm):
+    class Meta:
+        model = RetourPlateforme
+        fields = ["kind", "subject", "message", "submitter_name", "submitter_email"]
+        widgets = {
+            "message": forms.Textarea(attrs={"rows": 6, "placeholder": "Décris le problème ou ton idée avec quelques détails."}),
+            "subject": forms.TextInput(attrs={"placeholder": "Ex. Le lien de partage ne s’ouvre pas"}),
+            "submitter_name": forms.TextInput(attrs={"autocomplete": "name", "placeholder": "Facultatif"}),
+            "submitter_email": forms.EmailInput(attrs={"autocomplete": "email", "placeholder": "Facultatif"}),
+        }
+        labels = {
+            "kind": "De quoi s’agit-il ?",
+            "subject": "Sujet",
+            "message": "Ton message",
+            "submitter_name": "Ton nom",
+            "submitter_email": "E-mail pour te répondre",
+        }
+
+
+class RetourPlateformeUpdateForm(forms.ModelForm):
+    class Meta:
+        model = RetourPlateforme
+        fields = ["status", "admin_note"]
+        widgets = {"admin_note": forms.Textarea(attrs={"rows": 5})}
+        labels = {"status": "État", "admin_note": "Note interne"}

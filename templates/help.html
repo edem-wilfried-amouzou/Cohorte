@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Aide et FAQ · Cohorte{% endblock %}
+{% block meta_description %}Réponses aux questions courantes sur les classes, les listes, les activités, les documents et les liens de partage Cohorte.{% endblock %}
+{% block content %}
+<main class="container help-page">
+  <header class="page-head"><div><p class="eyebrow">Centre d’aide</p><h1>Comment utiliser Cohorte</h1><p>Des réponses rapides pour organiser une classe et partager ses ressources.</p></div></header>
+  <nav class="help-topics" aria-label="Rubriques d’aide"><a href="#classes">Classes</a><a href="#listes">Listes</a><a href="#activites">Exposés et projets</a><a href="#documents">Documents</a><a href="#compte">Compte et accès</a></nav>
+
+  <section class="help-section" id="classes"><h2>Classes et partage</h2>
+    <details class="faq-item"><summary>Par où commencer ?</summary><p>Crée une classe, importe la liste des personnes, puis ajoute tes activités. La page <em>Vue d’ensemble</em> contient le lien de l’espace partagé complet.</p></details>
+    <details class="faq-item"><summary>Quelle est la différence entre les liens publics ?</summary><p>Le lien de l’espace partagé réunit la liste, les documents autorisés et les activités disponibles. Le lien d’inscription ouvre une activité pour enregistrer une réponse. Le lien de consultation affiche les groupes en lecture seule lorsqu’il a été activé.</p></details>
+    <details class="faq-item"><summary>Qui peut gérer ma classe ?</summary><p>Le propriétaire choisit les collaborateurs dans <em>Équipe</em>. Le co-délégué peut gérer la plupart des données; le secrétaire peut les modifier avec des limites; le lecteur consulte la classe sans la modifier.</p></details>
+  </section>
+
+  <section class="help-section" id="listes"><h2>Liste des personnes</h2>
+    <details class="faq-item"><summary>Les visiteurs peuvent-ils ajouter ou corriger leur nom ?</summary><p>Oui, si le propriétaire active les modifications publiques dans les réglages de la classe. Sinon, le lien de la liste reste en lecture seule. Les nouveaux noms peuvent être vérifiés depuis l’onglet Personnes.</p></details>
+    <details class="faq-item"><summary>Comment changer le tri de la liste ?</summary><p>Dans Personnes, choisis le tri par nom de famille ou l’ordre d’import. Le lien public propose aussi une recherche et plusieurs options de tri.</p></details>
+  </section>
+
+  <section class="help-section" id="activites"><h2>Exposés et projets</h2>
+    <details class="faq-item"><summary>Comment répartir les personnes dans les groupes ?</summary><p>Crée un groupe ou une série, puis affecte les personnes depuis la fiche de l’activité. Tu peux aussi modifier le groupe, la capacité, l’ordre de passage et le chef de groupe depuis les options de chaque carte.</p></details>
+    <details class="faq-item"><summary>Comment publier la consultation des groupes ?</summary><p>Ouvre les options de l’activité et active la consultation publique. Les visiteurs pourront alors lire les groupes avec le lien de consultation, sans modifier les réponses.</p></details>
+    <details class="faq-item"><summary>Pourquoi une personne ne peut-elle pas s’inscrire ?</summary><p>Vérifie que les inscriptions sont ouvertes, que la date limite n’est pas passée et que le groupe n’a pas atteint sa capacité.</p></details>
+  </section>
+
+  <section class="help-section" id="documents"><h2>Documents et bibliothèque</h2>
+    <details class="faq-item"><summary>Comment rendre un document visible ?</summary><p>Active d’abord la rubrique Documents dans les réglages de la classe. Ensuite, rends le dossier visible et vérifie la visibilité de chaque fichier. Un sous-dossier dépend aussi de la visibilité de ses dossiers parents.</p></details>
+    <details class="faq-item"><summary>Peut-on lire un fichier sans le télécharger ?</summary><p>Le propriétaire peut désactiver le téléchargement public d’un dossier. Les formats compatibles s’ouvrent alors dans le navigateur. Un aperçu peut toujours être enregistré par le visiteur.</p></details>
+    <details class="faq-item"><summary>Les visiteurs peuvent-ils déposer des fichiers ?</summary><p>Le propriétaire peut activer les dépôts publics dans les options d’un dossier. Un fichier peut peser jusqu’à 25 Mo; chaque classe dispose de 250 Mo et les archives ZIP sont limitées à 100 Mo.</p></details>
+  </section>
+
+  <section class="help-section" id="compte"><h2>Compte et affichage</h2>
+    <details class="faq-item"><summary>Comment changer mes informations ou exporter mes données ?</summary><p>Ouvre ton profil depuis la barre de navigation. Tu peux modifier ton e-mail, télécharger une copie de tes données ou demander la suppression de ton compte.</p></details>
+    <details class="faq-item"><summary>Comment activer le mode sombre ?</summary><p>Utilise le bouton de thème dans la barre de navigation. Cohorte garde ton choix sur cet appareil.</p></details>
+    <details class="faq-item"><summary>Une page ou un lien ne s’ouvre plus. Que vérifier ?</summary><p>Actualise la page et vérifie que le lien n’a pas été renouvelé ou désactivé par le propriétaire. Pour un document public, le partage peut aussi avoir été retiré.</p></details>
+  </section>
+</main>
+{% endblock %}

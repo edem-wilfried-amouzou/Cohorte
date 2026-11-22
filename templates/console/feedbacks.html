@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Retours · Console super admin{% endblock %}
+{% block content %}
+<main class="container console-shell">
+  <header class="page-head"><div><p class="eyebrow">Administration de la plateforme</p><h1>Retours et propositions</h1><p class="muted">Bugs, réclamations et idées envoyés depuis le site.{% if new_count %} {{ new_count }} nouveau{{ new_count|pluralize }} à examiner.{% endif %}</p></div><a class="btn ghost" href="{% url 'console:home' %}">← Console</a></header>
+  <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a href="{% url 'console:users' %}">Utilisateurs</a><a aria-current="page" href="{% url 'console:feedbacks' %}">Retours{% if new_count %} <span class="badge">{{ new_count }}</span>{% endif %}</a><a href="{% url 'console:logs' %}">Journaux</a><a href="{% url 'console:technical' %}">Documentation</a></nav>
+  <form method="get" class="card console-filter">
+    <label class="sr-only" for="feedback-search">Chercher dans les retours</label><input id="feedback-search" type="search" name="q" value="{{ q }}" placeholder="Sujet, message ou personne">
+    <select name="status" aria-label="Filtrer par état"><option value="all" {% if status == 'all' %}selected{% endif %}>Tous les états</option>{% for value, label in statuses %}<option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <select name="kind" aria-label="Filtrer par type"><option value="" {% if not kind %}selected{% endif %}>Tous les types</option>{% for value, label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+    <button class="btn" type="submit">Filtrer</button>
+  </form>
+  <section class="card flat"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Type</th><th>Sujet</th><th>Expéditeur</th><th>État</th></tr></thead><tbody>
+    {% for item in page.object_list %}<tr><td>{{ item.created_at|date:"d/m/Y H:i" }}</td><td>{{ item.kind_label }}</td><td><a href="{% url 'console:feedback_detail' item.pk %}"><strong>{{ item.subject }}</strong></a></td><td>{{ item.submitter_name|default:item.submitter_email|default:item.submitted_by.username|default:"Anonyme" }}</td><td><span class="badge {% if item.status == 'new' %}en_attente{% elif item.status == 'done' %}affecte{% endif %}">{{ item.status_label }}</span></td></tr>
+    {% empty %}<tr><td colspan="5" class="muted">Aucun retour ne correspond à ces filtres.</td></tr>{% endfor %}
+  </tbody></table></div></section>
+  {% if page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination des retours">{% if page.has_previous %}<a href="?q={{ q|urlencode }}&amp;status={{ status|urlencode }}&amp;kind={{ kind|urlencode }}&amp;page={{ page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?q={{ q|urlencode }}&amp;status={{ status|urlencode }}&amp;kind={{ kind|urlencode }}&amp;page={{ page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
+</main>
+{% endblock %}

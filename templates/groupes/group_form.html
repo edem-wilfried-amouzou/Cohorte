@@ -3,13 +3,13 @@
 {% block content %}
 <main class="container">
   {% include "partials/classe_head.html" %}
-  <form class="card" method="post" style="max-width:560px">
+  <form class="card max-w-[560px]" method="post">
     {% csrf_token %}
     <h2>Modifier {{ group.short_label }}</h2>
     {% include "partials/field.html" with field=form.number %}
     {% include "partials/field.html" with field=form.name %}
     {% include "partials/field.html" with field=form.capacity %}
-    <div class="row" style="margin-top:1.25rem">
+    <div class="row mt-5">
       <button class="btn" type="submit">Enregistrer</button>
       <a class="btn ghost" href="{% url 'groupes:groups' classe.pk %}">Annuler</a>
     </div>

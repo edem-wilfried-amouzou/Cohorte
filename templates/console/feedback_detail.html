@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ item.subject }} · Retours · Console{% endblock %}
+{% block content %}
+<main class="container console-shell">
+  <header class="page-head"><div><p class="eyebrow">{{ item.kind_label }} · {{ item.created_at|date:"d/m/Y à H:i" }}</p><h1>{{ item.subject }}</h1><p class="muted">{{ item.submitter_name|default:item.submitter_email|default:item.submitted_by.username|default:"Anonyme" }}</p></div><a class="btn ghost" href="{% url 'console:feedbacks' %}">← Tous les retours</a></header>
+  <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a href="{% url 'console:users' %}">Utilisateurs</a><a aria-current="page" href="{% url 'console:feedbacks' %}">Retours</a><a href="{% url 'console:logs' %}">Journaux</a><a href="{% url 'console:technical' %}">Documentation</a></nav>
+  {% include "partials/messages.html" %}
+  <div class="feedback-admin-layout">
+    <section class="card feedback-message-card"><p class="eyebrow">Message reçu</p><div class="feedback-message">{{ item.message }}</div>
+      <dl class="feedback-meta"><div><dt>E-mail</dt><dd>{% if item.submitter_email %}<a href="mailto:{{ item.submitter_email }}">{{ item.submitter_email }}</a>{% else %}Non fourni{% endif %}</dd></div><div><dt>Compte Cohorte</dt><dd>{% if item.submitted_by %}{{ item.submitted_by.username }}{% else %}Sans connexion{% endif %}</dd></div><div><dt>Page concernée</dt><dd>{% if item.source_path %}<code>{{ item.source_path }}</code>{% else %}Non précisée{% endif %}</dd></div><div><dt>Dernière mise à jour</dt><dd>{{ item.updated_at|date:"d/m/Y H:i" }}{% if item.handled_by %} · {{ item.handled_by.username }}{% endif %}</dd></div></dl>
+    </section>
+    <section class="card"><p class="eyebrow">Suivi interne</p><h2>Mettre à jour ce retour</h2><form method="post" class="feedback-admin-form">{% csrf_token %}{% for field in form %}{% include "partials/field.html" with field=field %}{% endfor %}<button class="btn" type="submit">Enregistrer</button></form></section>
+  </div>
+</main>
+{% endblock %}
