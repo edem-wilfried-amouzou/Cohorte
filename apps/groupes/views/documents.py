@@ -26,6 +26,13 @@ def _used_space(classe):
     return classe.documents.aggregate(total=Sum("byte_size"))["total"] or 0
 
 
+def _private_file_response(response):
+    """Empêche les navigateurs et proxys de conserver les documents téléchargés."""
+    response["Cache-Control"] = "private, no-store"
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 def _clean_filename(value):
     name = os.path.basename((value or "document").replace("\\", "/"))
     name = "".join(character for character in name if character.isprintable()).strip()
@@ -246,6 +253,7 @@ def document_download(request, pk, dpk):
             document.file.open("rb"), as_attachment=not inline, filename=document.display_name,
             content_type=(content_type if inline else "application/octet-stream"),
         )
+        _private_file_response(response)
         if inline:
             set_preview_headers(response)
         return response
@@ -259,7 +267,7 @@ def document_folder_zip(request, pk, fpk):
     classe = _classe(request, pk)
     folder = get_object_or_404(DossierDocument, pk=fpk, classe=classe)
     try:
-        return archive_response(folder)
+        return _private_file_response(archive_response(folder))
     except (OSError, ValueError) as error:
         messages.error(request, str(error))
         return _documents_redirect(request, classe)
@@ -312,11 +320,19 @@ def public_document_download(request, token, dpk):
         if inline and not previewable:
             raise Http404("Ce type de fichier ne peut pas être affiché dans le navigateur.")
         if can_download and not inline:
-            return FileResponse(document.file.open("rb"), as_attachment=True, filename=document.display_name, content_type="application/octet-stream")
+            response = FileResponse(
+                document.file.open("rb"), as_attachment=True,
+                filename=document.display_name, content_type="application/octet-stream",
+            )
+            return _private_file_response(response)
         if not previewable:
             raise Http404("Ce type de fichier ne peut pas être affiché dans le navigateur.")
         content_type = mimetypes.guess_type(document.display_name, strict=False)[0]
-        response = FileResponse(document.file.open("rb"), as_attachment=False, filename=document.display_name, content_type=content_type)
+        response = FileResponse(
+            document.file.open("rb"), as_attachment=False,
+            filename=document.display_name, content_type=content_type,
+        )
+        _private_file_response(response)
         set_preview_headers(response)
         return response
     except (OSError, ValueError):
@@ -330,7 +346,7 @@ def public_document_folder_zip(request, token, fpk):
     if not folder_is_public(folder):
         raise Http404
     try:
-        return archive_response(folder, public_only=True)
+        return _private_file_response(archive_response(folder, public_only=True))
     except (OSError, ValueError) as error:
         messages.error(request, str(error))
         return redirect(f"{reverse('groupes:public_portal', args=[classe.token])}?view=documents&folder={folder.pk}")

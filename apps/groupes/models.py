@@ -400,10 +400,11 @@ class Commentaire(models.Model):
 
 
 def document_upload_path(instance, filename):
-    """Range les pièces jointes hors des fichiers statiques, avec un nom imprévisible."""
-    safe_name = PurePath((filename or "document").replace("\\", "/")).name
+    """Range les pièces jointes sous une clé courte et imprévisible."""
+    suffix = PurePath((filename or "document").replace("\\", "/")).suffix.lower()
+    suffix = re.sub(r"[^a-z0-9.]", "", suffix)[:16]
     folder_id = instance.folder_id or "racine"
-    return f"documents/{instance.classe_id}/{folder_id}/{uuid4().hex}_{safe_name[:180]}"
+    return f"documents/{instance.classe_id}/{folder_id}/{uuid4().hex}{suffix}"
 
 
 class DossierDocument(models.Model):

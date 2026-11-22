@@ -96,7 +96,18 @@ Les données de `db.sqlite3` ne sont pas copiées automatiquement vers Neon. Pou
 
 Le service web Render gratuit peut s’endormir après inactivité; pour un usage régulier, choisis une instance adaptée. Configure également un cache partagé (Redis) avant d’utiliser plusieurs instances, car le limiteur de requêtes actuel repose sur le cache local.
 
-Les fichiers déposés sont conservés dans `MEDIA_ROOT` (par défaut `media/`). En production, définis `MEDIA_ROOT` sur un disque persistant ou configure un stockage objet avant d'accepter des documents : le disque local d'un service web éphémère peut être effacé lors d'un redéploiement.
+Par défaut, les fichiers déposés restent dans `MEDIA_ROOT` (par défaut `media/`), ce qui convient au développement local. En production sur Render, active Cloudflare R2 avant d'accepter des documents : le disque du service web gratuit est temporaire et peut être effacé lors d'un redémarrage ou redéploiement.
+
+### Stockage sécurisé des documents avec Cloudflare R2
+
+1. Dans Cloudflare, crée un bucket R2 en stockage **Standard** et laisse l'accès public désactivé.
+2. Crée un jeton R2 **Object Read & Write**, limité à ce bucket. Garde l'ID du compte, l'ID de clé et le secret : Cloudflare ne réaffiche pas le secret après sa création.
+3. Dans Render → service Cohorte → **Environment**, configure `USE_R2_STORAGE=1`, `R2_ACCOUNT_ID`, `R2_BUCKET_NAME`, `R2_ACCESS_KEY_ID` et `R2_SECRET_ACCESS_KEY`. Les clés restent dans Render, jamais dans Git ni dans le navigateur.
+4. Redéploie Cohorte. Les nouveaux dépôts seront stockés dans R2; Neon gardera les noms, dossiers et permissions.
+
+Cohorte lit et écrit les fichiers côté serveur. Les téléchargements passent par les vues Django, qui vérifient l'accès à la classe et la visibilité du document avant de transmettre le fichier. Le bucket reste privé; aucune configuration CORS ni domaine public R2 n'est nécessaire. Les réponses de fichiers sont envoyées avec `Cache-Control: private, no-store`.
+
+**Avant d'activer R2**, copie les éventuels fichiers déjà présents dans `MEDIA_ROOT` vers le bucket en conservant exactement leurs chemins. Ne supprime l'ancienne copie qu'après avoir vérifié l'ouverture et le téléchargement des fichiers depuis Cohorte. La configuration actuelle utilise encore le stockage local tant que `USE_R2_STORAGE` vaut `0`.
 
 ## Tests
 

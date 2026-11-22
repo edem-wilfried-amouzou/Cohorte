@@ -17,6 +17,16 @@ services:
         sync: false
       - key: DB_CONN_MAX_AGE
         value: "60"
+      - key: USE_R2_STORAGE
+        value: "0"
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
       - key: TRUSTED_PROXY_COUNT
         value: "1"
       - key: DJANGO_ADMIN_URL

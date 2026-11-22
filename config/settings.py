@@ -140,8 +140,44 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATIC_ROOT.mkdir(exist_ok=True)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(os.environ.get("MEDIA_ROOT", BASE_DIR / "media"))
+USE_R2_STORAGE = env_bool("USE_R2_STORAGE", False)
+
+if USE_R2_STORAGE:
+    r2_settings = {
+        "R2_ACCOUNT_ID": os.environ.get("R2_ACCOUNT_ID", "").strip(),
+        "R2_BUCKET_NAME": os.environ.get("R2_BUCKET_NAME", "").strip(),
+        "R2_ACCESS_KEY_ID": os.environ.get("R2_ACCESS_KEY_ID", "").strip(),
+        "R2_SECRET_ACCESS_KEY": os.environ.get("R2_SECRET_ACCESS_KEY", "").strip(),
+    }
+    missing_r2_settings = [name for name, value in r2_settings.items() if not value]
+    if missing_r2_settings:
+        raise ImproperlyConfigured(
+            "USE_R2_STORAGE=1 demande les variables : " + ", ".join(missing_r2_settings)
+        )
+
+    default_file_storage = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": r2_settings["R2_BUCKET_NAME"],
+            "endpoint_url": f"https://{r2_settings['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+            "region_name": "auto",
+            "access_key": r2_settings["R2_ACCESS_KEY_ID"],
+            "secret_key": r2_settings["R2_SECRET_ACCESS_KEY"],
+            "addressing_style": "path",
+            "signature_version": "s3v4",
+            "default_acl": None,
+            "querystring_auth": True,
+            "querystring_expire": 600,
+            # document_upload_path génère un UUID : le HEAD préalable à chaque dépôt est inutile.
+            "file_overwrite": True,
+            "object_parameters": {"CacheControl": "private, no-store"},
+        },
+    }
+else:
+    default_file_storage = {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": default_file_storage,
     "staticfiles": {
         "BACKEND": (
             "django.contrib.staticfiles.storage.StaticFilesStorage"
