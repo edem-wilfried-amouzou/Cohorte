@@ -88,6 +88,9 @@ def logs(request):
     if query:
         results = results.filter(
             Q(action__icontains=query) | Q(detail__icontains=query) | Q(ip__icontains=query)
+            | Q(country__icontains=query) | Q(country_code__icontains=query)
+            | Q(browser__icontains=query) | Q(operating_system__icontains=query)
+            | Q(device__icontains=query) | Q(user_agent__icontains=query)
             | Q(user__username__icontains=query) | Q(user__email__icontains=query)
             | Q(classe__name__icontains=query),
         )

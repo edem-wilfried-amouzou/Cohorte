@@ -276,6 +276,13 @@ def public_portal(request, token):
             ))
             total_group_members += len(group.people)
 
+    dashboard_url = None
+    if request.user.is_authenticated and (
+        classe.owner_id == request.user.pk
+        or classe.collaborateurs.filter(user=request.user).exists()
+    ):
+        dashboard_url = reverse("groupes:detail", args=[classe.pk])
+
     return render(request, "public/portal.html", {
         "classe": classe,
         "activites": activities,
@@ -292,6 +299,7 @@ def public_portal(request, token):
         "public_list_editing": _public_editing_open(classe),
         "member_count": classe.membres.count(),
         "portal_url": request.build_absolute_uri(reverse("groupes:public_portal", args=[classe.token])),
+        "dashboard_url": dashboard_url,
         **member_context,
     })
 

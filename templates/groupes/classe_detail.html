@@ -22,7 +22,7 @@
       <section class="card">
         <div class="row between"><h2>Page publique complète</h2><a href="{% url 'groupes:settings' classe.pk %}" class="small">Réglages</a></div>
         <p class="muted small">Partage une seule page avec les exposés publiés, la liste et les documents que tu rends visibles.</p>
-        <div class="linkbox mt-3"><input id="class-portal-link" readonly value="{{ portal_url }}" aria-label="Lien de la page publique complète"><button class="btn" type="button" data-copy="#class-portal-link">Copier le lien</button></div>
+        <div class="linkbox mt-3"><input id="class-portal-link" readonly value="{{ portal_url }}" aria-label="Lien de la page publique complète"><button class="btn" type="button" data-copy="#class-portal-link">Copier le lien</button><a class="btn ghost" href="{{ portal_url }}" target="_blank" rel="noopener">Visiter la page publique ↗</a></div>
         <div class="row between mt-5"><h3>Liens des activités</h3><a href="{% url 'groupes:activities' classe.pk %}" class="small">Gérer</a></div>
         {% if activites %}<div class="activity-link-list">{% for activite in activites %}<a href="{% url 'groupes:activity_detail' classe.pk activite.pk %}"><span>{{ activite.title }}</span><small>{% if activite.accepting %}Lien ouvert{% else %}Lien fermé{% endif %} · {{ activite.n_groupes }} groupes</small></a>{% endfor %}</div>
         {% else %}<p class="muted small">Crée un exposé ou un projet pour obtenir son formulaire et son lien de participation.</p><a class="btn small" href="{% url 'groupes:activities' classe.pk %}">Créer une activité</a>{% endif %}

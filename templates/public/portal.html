@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 {% block title %}{{ classe.name }} · Espace partagé{% endblock %}
-{% block meta_description %}Espace partagé de {{ classe.name }} sur Cohorte : consulte la liste, les exposés et les documents de la classe.{% endblock %}
+{% block meta_description %}{% if classe.description %}{{ classe.description }} · Espace partagé de {{ classe.name }} sur Cohorte.{% else %}Espace partagé de {{ classe.name }} sur Cohorte : consulte la liste, les exposés et les documents de la classe.{% endif %}{% endblock %}
 {% block og_title %}{{ classe.name }} · Espace partagé Cohorte{% endblock %}
-{% block og_description %}Liste de classe, exposés et documents partagés pour {{ classe.name }}.{% endblock %}
+{% block og_image_alt %}{{ classe.name }} · Espace partagé Cohorte{% endblock %}
+{% block og_description %}{% if classe.description %}{{ classe.description }} · Liste de classe, exposés et documents partagés sur Cohorte.{% else %}Liste de classe, exposés et documents partagés pour {{ classe.name }}.{% endif %}{% endblock %}
 {% block og_url %}{{ portal_url }}{% endblock %}
 {% block twitter_title %}{{ classe.name }} · Espace partagé Cohorte{% endblock %}
-{% block twitter_description %}Liste de classe, exposés et documents partagés pour {{ classe.name }}.{% endblock %}
+{% block twitter_description %}{% if classe.description %}{{ classe.description }} · Liste de classe, exposés et documents partagés sur Cohorte.{% else %}Liste de classe, exposés et documents partagés pour {{ classe.name }}.{% endif %}{% endblock %}
 {% block nav %}{% endblock %}
 {% block content %}
 <main class="container public-portal">
   <article class="public-portal-shell" aria-labelledby="portal-title">
     <header class="public-portal-head">
-      <div class="portal-brand-row"><a class="brand" href="{% url 'groupes:public_portal' classe.token %}">{% include "partials/logo.html" %}Cohorte</a><span class="portal-live-badge"><i aria-hidden="true"></i> Espace partagé</span></div>
+      <div class="portal-brand-row"><a class="brand" href="{% url 'groupes:public_portal' classe.token %}">{% include "partials/logo.html" %}Cohorte</a><div class="flex flex-wrap items-center gap-2">{% if dashboard_url %}<a class="btn ghost small" href="{{ dashboard_url }}">← Tableau de bord</a>{% endif %}<span class="portal-live-badge"><i aria-hidden="true"></i> Espace partagé</span></div></div>
       <p class="eyebrow">Classe · {{ classe.name }}</p>
       <h1 id="portal-title">{{ classe.name }}</h1>
       {% if classe.description %}<p class="portal-description">{{ classe.description }}</p>{% else %}<p class="portal-description">Retrouve ici la liste de la classe, ses activités et ses ressources partagées.</p>{% endif %}
