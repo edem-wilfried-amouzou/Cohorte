@@ -44,7 +44,7 @@ Une colonne de noms suffit. Si la première ligne contient des titres, sont reco
 - Inscription : code d'invitation facultatif (`SIGNUP_INVITE_CODE`). Réinitialisation du mot de passe par e-mail.
 - URL de l'admin configurable (`DJANGO_ADMIN_URL`).
 - Liens partagés de 128 bits. Option « masquer les matricules » ; la recherche publique ne porte que sur les champs affichés.
-- Journal d'audit (`AuditLog`, visible dans l'admin) : suppressions, imports, renouvellement de liens, équipe, modifications depuis le lien public.
+- Journal d'audit (`AuditLog`, visible dans la Console superadmin et l'admin) : IP, pays si le trafic passe par le proxy Cloudflare, navigateur, système, appareil et actions sensibles. Active `TRUST_CLOUDFLARE_HEADERS=1` uniquement si l’application est réellement proxifiée par Cloudflare et que l’accès direct à l’origine est bloqué; le mode DNS seul ne suffit pas.
 - Compte : export JSON de ses données et suppression du compte (page *Mon compte*).
 - Import validé (extension, taille, signature xlsx), exports protégés contre l'injection de formules.
 - Mots de passe : 10 caractères minimum, validateurs Django activés.

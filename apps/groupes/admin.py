@@ -28,9 +28,13 @@ class CommentaireAdmin(admin.ModelAdmin):
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "action", "user", "classe", "ip")
-    list_filter = ("action",)
-    readonly_fields = ("user", "classe", "action", "detail", "ip", "created_at")
+    list_display = ("created_at", "action", "user", "classe", "ip", "country", "device", "browser", "operating_system")
+    list_filter = ("action", "country_code", "device", "browser", "operating_system")
+    search_fields = ("ip", "country", "browser", "operating_system", "device", "user_agent", "user__username", "detail")
+    readonly_fields = (
+        "user", "classe", "action", "detail", "ip", "country", "country_code", "device", "browser",
+        "operating_system", "user_agent", "created_at",
+    )
 
     def has_add_permission(self, request):
         return False

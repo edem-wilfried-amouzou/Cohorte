@@ -197,6 +197,8 @@ CACHES = {
 
 # Nombre de proxys de confiance devant l'app (Render = 1). 0 = utiliser REMOTE_ADDR.
 TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "1" if os.environ.get("DJANGO_BEHIND_PROXY") == "1" else "0"))
+# N'activer qu'en cas de trafic réellement relayé par Cloudflare (proxy orange).
+TRUST_CLOUDFLARE_HEADERS = env_bool("TRUST_CLOUDFLARE_HEADERS", False)
 
 # E-mail (réinitialisation du mot de passe). Sans EMAIL_HOST : affichage console.
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")

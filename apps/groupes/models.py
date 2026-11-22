@@ -535,13 +535,19 @@ class RetourPlateforme(models.Model):
 
 
 class AuditLog(models.Model):
-    """Journal des actions sensibles : qui a fait quoi, quand, depuis quelle IP."""
+    """Journal des actions sensibles et des informations techniques du client."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     classe = models.ForeignKey(Classe, null=True, blank=True, on_delete=models.SET_NULL, related_name="journal")
     action = models.CharField(max_length=40)
     detail = models.CharField(max_length=300, blank=True)
     ip = models.CharField(max_length=64, blank=True)
+    country = models.CharField(max_length=80, blank=True)
+    country_code = models.CharField(max_length=2, blank=True)
+    operating_system = models.CharField(max_length=80, blank=True)
+    browser = models.CharField(max_length=80, blank=True)
+    device = models.CharField(max_length=40, blank=True)
+    user_agent = models.CharField(max_length=512, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
