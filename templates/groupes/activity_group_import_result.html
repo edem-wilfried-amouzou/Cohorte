@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Bilan de l’import · {{ activite.title }}{% endblock %}
+{% block content %}
+<main class="container narrow">
+  {% include "partials/classe_head.html" %}
+  <div class="page-head"><div><p class="eyebrow">{{ activite.title }}</p><h2>Bilan de l’import</h2></div></div>
+  <section class="card stack">
+    <p><strong>{{ result.assigned }}</strong> membre{{ result.assigned|pluralize }} affecté{{ result.assigned|pluralize }} dans les groupes du fichier.</p>
+    <div class="stats">
+      <div class="stat"><b>{{ result.exact }}</b><span>Correspondances directes</span></div>
+      <div class="stat"><b>{{ result.fuzzy }}</b><span>Approximatives</span></div>
+      <div class="stat"><b>{{ result.groups_created }}</b><span>Nouveaux groupes</span></div>
+      <div class="stat"><b>{{ result.moved }}</b><span>Membres déplacés</span></div>
+    </div>
+    {% if result.fuzzy_matches %}
+    <section class="import-result-list">
+      <h3>Correspondances approximatives appliquées</h3>
+      <p class="muted small">Vérifie que les noms rapprochés correspondent bien aux bonnes personnes.</p>
+      <ul>{% for item in result.fuzzy_matches %}<li>« {{ item.name }} » → <strong>{{ item.member }}</strong> · Groupe {{ item.group_number }}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+    {% if result.issues %}
+    <section class="import-result-list">
+      <h3>Noms laissés sans affectation ({{ result.issues|length }})</h3>
+      <p class="muted small">Aucune nouvelle affectation n’a été faite pour ces lignes. Une affectation déjà enregistrée reste inchangée.</p>
+      <ul>{% for item in result.issues %}<li><strong>{{ item.name }}</strong> · Groupe {{ item.group_number }} — {{ item.reason }}{% if item.candidates %}<br><span class="muted small">Candidats : {{ item.candidates|join:", " }}</span>{% endif %}</li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+    <div class="row"><a class="btn" href="{% url 'groupes:activity_detail' classe.pk activite.pk %}">Voir les groupes</a><a class="btn ghost" href="{% url 'groupes:members' classe.pk %}">Ouvrir la liste des personnes</a></div>
+  </section>
+</main>
+{% endblock %}
