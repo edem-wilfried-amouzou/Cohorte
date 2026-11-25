@@ -17,6 +17,7 @@ from ..forms import (
     CommentaireForm,
     PublicListForm,
     ActiviteForm,
+    ActivityGroupsImportForm,
     BulkGroupsForm,
     ChampMembreForm,
     ClasseForm,
@@ -30,7 +31,7 @@ from ..models import (
     Activite, ChampMembre, Classe, Collaborateur, DemandeMembre, Groupe, Membre, Participation,
     compose_full_name, normalize,
 )
-from ..services import importing
+from ..services import group_importing, importing
 from ..services.allocation import auto_assign
 from ..services.exporting import EXPORTERS, collect, collect_activity, filename
 from ..services.qr import qr_svg
@@ -195,6 +196,7 @@ def activity_detail(request, pk, apk):
             participations__activite=activity, participations__groupe__isnull=False,
         ).distinct().order_by(Lower("last_name"), Lower("first_name"), "search_name"),
         "group_form": GroupeForm(classe=classe, activite=activity),
+        "group_import_form": ActivityGroupsImportForm(),
         "bulk": BulkGroupsForm(), "form": ActiviteForm(instance=activity), "stats": stats,
         "commentaires": activity.commentaires.select_related("author"), "comment_form": CommentaireForm(),
         "can_edit": request.class_role != Collaborateur.Role.VIEWER,
@@ -271,6 +273,37 @@ def activity_groups_bulk(request, pk, apk):
 
 @login_required
 @require_POST
+def activity_groups_import(request, pk, apk):
+    activity = _activite(request, pk, apk, write=True, full=True)
+    if too_many(request, "activity_groups_import", 10, 3600):
+        messages.error(request, "Trop d’imports effectués. Réessaie plus tard.")
+        return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+    form = ActivityGroupsImportForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, "Choisis un fichier Excel ou CSV.")
+        return redirect(f"{reverse('groupes:activity_detail', args=[pk, apk])}#activity-groups-import-dialog")
+    try:
+        rows = group_importing.parse_upload(form.cleaned_data["file"])
+        result = group_importing.import_rows(activity, rows)
+    except group_importing.ImportError_ as exc:
+        messages.error(request, str(exc))
+        return redirect(f"{reverse('groupes:activity_detail', args=[pk, apk])}#activity-groups-import-dialog")
+
+    log_action(
+        request, "groupes_activite_importes", classe=activity.classe,
+        detail=f"{activity.title} · {result['assigned']} affectation(s)",
+    )
+    return render(request, "groupes/activity_group_import_result.html", {
+        "classe": activity.classe,
+        "activite": activity,
+        "result": result,
+        "tab": "activities",
+    })
+
+
+@login_required
+@require_POST
 def activity_assign(request, pk, apk):
     activity = _activite(request, pk, apk, write=True)
     member = get_object_or_404(Membre, pk=_int_or_none(request.POST.get("membre")), classe=activity.classe)
@@ -288,6 +321,70 @@ def activity_assign(request, pk, apk):
         defaults={"groupe": group, "responded_at": timezone.now()},
     )
     messages.success(request, f"Affectation de {member.full_name} mise à jour.")
+    return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+
+@login_required
+@require_POST
+def activity_assign_bulk(request, pk, apk):
+    activity = _activite(request, pk, apk, write=True)
+    raw_ids = request.POST.getlist("member_ids")
+    member_ids = [_int_or_none(value) for value in raw_ids]
+    if not member_ids or any(value is None for value in member_ids):
+        messages.error(request, "Sélectionne des personnes à affecter.")
+        return redirect("groupes:activity_detail", pk=pk, apk=apk)
+    member_ids = list(dict.fromkeys(member_ids))
+    if len(member_ids) > 5000:
+        messages.error(request, "La sélection dépasse la limite de 5 000 personnes.")
+        return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+    members = list(activity.classe.membres.filter(pk__in=member_ids))
+    if len(members) != len(member_ids):
+        messages.error(request, "Une ou plusieurs personnes ne font pas partie de cette classe.")
+        return redirect("groupes:activity_detail", pk=pk, apk=apk)
+    group_id = _int_or_none(request.POST.get("group_id"))
+    if group_id is None:
+        messages.error(request, "Choisis un groupe de destination.")
+        return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+    with transaction.atomic():
+        group = get_object_or_404(Groupe.objects.select_for_update(), pk=group_id, activite=activity)
+        existing = {
+            item.membre_id: item
+            for item in Participation.objects.filter(activite=activity, membre_id__in=member_ids)
+        }
+        current_size = Participation.objects.filter(activite=activity, groupe=group).count()
+        additions = sum(
+            1 for member in members
+            if member.pk not in existing or existing[member.pk].groupe_id != group.pk
+        )
+        if group.capacity is not None and current_size + additions > group.capacity:
+            messages.error(request, f"La sélection dépasse la capacité de {group.short_label}.")
+            return redirect("groupes:activity_detail", pk=pk, apk=apk)
+
+        now = timezone.now()
+        create = []
+        update = []
+        for member in members:
+            participation = existing.get(member.pk)
+            if participation is None:
+                create.append(Participation(
+                    activite=activity, membre=member, groupe=group, responded_at=now,
+                ))
+            elif participation.groupe_id != group.pk or participation.responded_at is None:
+                participation.groupe = group
+                participation.responded_at = participation.responded_at or now
+                update.append(participation)
+        if create:
+            Participation.objects.bulk_create(create, batch_size=500)
+        if update:
+            Participation.objects.bulk_update(update, ["groupe", "responded_at"], batch_size=500)
+
+    log_action(
+        request, "membres_affectes_activite", classe=activity.classe,
+        detail=f"{len(members)} personne(s) · {activity.title} · {group.label}",
+    )
+    messages.success(request, f"{len(members)} personne(s) affectée(s) à {group.label}.")
     return redirect("groupes:activity_detail", pk=pk, apk=apk)
 
 

@@ -55,10 +55,16 @@ if (previewDialog) {
   const frame = previewDialog.querySelector("iframe");
   const title = previewDialog.querySelector("#document-preview-title");
   const download = previewDialog.querySelector("[data-preview-download]");
-  document.addEventListener("click", (event) => {
-    const link = event.target.closest("[data-document-preview]");
-    if (!link) return;
-    event.preventDefault();
+  const previous = previewDialog.querySelector("[data-preview-prev]");
+  const next = previewDialog.querySelector("[data-preview-next]");
+  const fullscreen = previewDialog.querySelector("[data-preview-fullscreen]");
+  let previewLinks = [];
+  let currentIndex = -1;
+
+  const showPreview = (index) => {
+    if (!previewLinks.length) return;
+    currentIndex = (index + previewLinks.length) % previewLinks.length;
+    const link = previewLinks[currentIndex];
     const previewUrl = link.dataset.previewUrl || link.href;
     if (title) title.textContent = link.dataset.previewTitle || "Document";
     if (frame) frame.src = previewUrl;
@@ -66,7 +72,58 @@ if (previewDialog) {
       download.href = previewUrl.replace(/[?&]inline=1(?:&|$)/, "").replace(/[?&]$/, "");
       download.hidden = link.dataset.previewDownloadable === "false";
     }
-    previewDialog.showModal();
+    if (previous) previous.disabled = previewLinks.length < 2;
+    if (next) next.disabled = previewLinks.length < 2;
+  };
+
+  const syncFullscreenButton = () => {
+    const active = document.fullscreenElement === previewDialog || previewDialog.classList.contains("is-expanded");
+    if (fullscreen) {
+      fullscreen.textContent = active ? "⤢" : "⛶";
+      fullscreen.setAttribute("aria-label", active ? "Réduire l’aperçu" : "Agrandir l’aperçu");
+      fullscreen.title = active ? "Réduire l’aperçu" : "Agrandir l’aperçu";
+    }
+  };
+
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest("[data-document-preview]");
+    if (link) {
+      event.preventDefault();
+      previewLinks = [...document.querySelectorAll("[data-document-preview]")];
+      showPreview(previewLinks.indexOf(link));
+      previewDialog.showModal();
+      return;
+    }
+    if (event.target.closest("[data-preview-prev]")) showPreview(currentIndex - 1);
+    if (event.target.closest("[data-preview-next]")) showPreview(currentIndex + 1);
   });
-  previewDialog.addEventListener("close", () => { if (frame) frame.src = "about:blank"; });
+
+  fullscreen?.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement === previewDialog) {
+        await document.exitFullscreen();
+      } else if (previewDialog.requestFullscreen) {
+        await previewDialog.requestFullscreen();
+      } else {
+        previewDialog.classList.toggle("is-expanded");
+        syncFullscreenButton();
+      }
+    } catch (error) {
+      previewDialog.classList.toggle("is-expanded");
+      syncFullscreenButton();
+    }
+  });
+
+  document.addEventListener("fullscreenchange", syncFullscreenButton);
+  document.addEventListener("keydown", (event) => {
+    if (!previewDialog.open) return;
+    if (event.key === "ArrowLeft") showPreview(currentIndex - 1);
+    if (event.key === "ArrowRight") showPreview(currentIndex + 1);
+  });
+  previewDialog.addEventListener("close", async () => {
+    if (frame) frame.src = "about:blank";
+    previewDialog.classList.remove("is-expanded");
+    if (document.fullscreenElement === previewDialog) await document.exitFullscreen();
+    syncFullscreenButton();
+  });
 }

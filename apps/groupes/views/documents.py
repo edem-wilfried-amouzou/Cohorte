@@ -13,11 +13,17 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_GET, require_POST
 
 from ..audit import log_action
-from ..forms import DocumentAccessForm, DossierDocumentAccessForm, DossierDocumentForm, DocumentUploadForm
+from ..forms import (
+    DocumentAccessForm, DossierDocumentAccessForm, DossierDocumentForm,
+    DocumentUploadForm, PublicFolderCreateForm,
+)
 from ..models import (
     MAX_CLASS_STORAGE, Classe, Document, DossierDocument,
 )
-from ..services.documents import archive_response, can_preview_in_browser, folder_is_public, set_preview_headers
+from ..services.documents import (
+    archive_response, build_document_preview, can_preview_in_browser, folder_is_public,
+    needs_html_preview, set_preview_headers,
+)
 from ..throttle import too_many
 from ._common import _classe
 
@@ -30,6 +36,17 @@ def _private_file_response(response):
     """Empêche les navigateurs et proxys de conserver les documents téléchargés."""
     response["Cache-Control"] = "private, no-store"
     response["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+def _document_preview_page(request, document, download_url):
+    response = render(request, "public/document_preview.html", {
+        "document": document,
+        "download_url": download_url,
+        **build_document_preview(document),
+    })
+    response["Cache-Control"] = "private, no-store"
+    set_preview_headers(response)
     return response
 
 
@@ -246,8 +263,14 @@ def document_download(request, pk, dpk):
     document = get_object_or_404(Document, pk=dpk, classe=classe)
     inline = request.GET.get("inline") == "1"
     content_type = mimetypes.guess_type(document.display_name, strict=False)[0]
+    if inline and needs_html_preview(document):
+        return _document_preview_page(
+            request, document, reverse("groupes:document_download", args=[classe.pk, document.pk]),
+        )
     if inline and not can_preview_in_browser(document):
-        raise Http404("Ce type de fichier ne peut pas être affiché dans le navigateur.")
+        return _document_preview_page(
+            request, document, reverse("groupes:document_download", args=[classe.pk, document.pk]),
+        )
     try:
         response = FileResponse(
             document.file.open("rb"), as_attachment=not inline, filename=document.display_name,
@@ -278,7 +301,7 @@ def public_document_upload(request, token, fpk):
     classe = get_object_or_404(Classe, token=token)
     folder = get_object_or_404(DossierDocument.objects.select_related("activite"), pk=fpk, classe=classe)
     return_url = f"{reverse('groupes:public_portal', args=[classe.token])}?view=documents&folder={folder.pk}"
-    if not folder_is_public(folder) or not folder.allow_public_uploads:
+    if not classe.public_documents or not classe.allow_public_uploads or not folder_is_public(folder) or not folder.allow_public_uploads:
         raise Http404
     if too_many(request, "public_document_upload", 5, 3600):
         messages.error(request, "Trop de fichiers envoyés depuis ce réseau. Réessaie plus tard.")
@@ -302,6 +325,66 @@ def public_document_upload(request, token, fpk):
     return redirect(return_url)
 
 
+@require_POST
+def public_document_folder_create(request, token):
+    classe = get_object_or_404(Classe, token=token)
+    if not classe.public_documents or not classe.allow_public_folder_creation:
+        raise Http404
+
+    form = PublicFolderCreateForm(request.POST)
+    parent_id = form.cleaned_data.get("parent") if form.is_valid() else None
+    if parent_id is None and request.POST.get("parent", "").isdigit():
+        parent_id = int(request.POST["parent"])
+    return_url = reverse("groupes:public_portal", args=[classe.token]) + "?view=documents"
+
+    if too_many(request, "public_document_folder_create", 10, 3600):
+        messages.error(request, "Trop de dossiers créés depuis ce réseau. Réessaie plus tard.")
+        return redirect(return_url)
+    if request.POST.get("website"):
+        return redirect(return_url)
+    if not form.is_valid():
+        messages.error(request, " ".join(str(error) for errors in form.errors.values() for error in errors))
+        if parent_id:
+            return redirect(f"{return_url}&folder={parent_id}")
+        return redirect(return_url)
+
+    try:
+        with transaction.atomic():
+            locked_class = Classe.objects.select_for_update().get(pk=classe.pk)
+            parent = None
+            if parent_id:
+                parent = get_object_or_404(DossierDocument, pk=parent_id, classe=locked_class)
+                if not folder_is_public(parent):
+                    raise Http404
+            name = form.cleaned_data["name"]
+            siblings = DossierDocument.objects.filter(classe=locked_class, parent=parent, name__iexact=name)
+            if parent is None:
+                siblings = siblings.filter(activite__isnull=True)
+            if siblings.exists():
+                messages.error(request, "Un dossier porte déjà ce nom à cet endroit.")
+                if parent:
+                    return redirect(f"{return_url}&folder={parent.pk}")
+                return redirect(return_url)
+            folder = DossierDocument.objects.create(
+                classe=locked_class,
+                activite=parent.activite if parent else None,
+                parent=parent,
+                name=name,
+                is_public=True,
+                allow_public_downloads=parent.allow_public_downloads if parent else True,
+                allow_public_uploads=locked_class.allow_public_uploads,
+            )
+    except IntegrityError:
+        messages.error(request, "Un dossier porte déjà ce nom à cet endroit.")
+        if parent_id:
+            return redirect(f"{return_url}&folder={parent_id}")
+        return redirect(return_url)
+
+    log_action(request, "dossier_document_public_cree", classe=classe, detail=folder.name)
+    messages.success(request, f"Dossier « {folder.name} » créé.")
+    return redirect(f"{return_url}&folder={folder.pk}")
+
+
 @require_GET
 @xframe_options_sameorigin
 def public_document_download(request, token, dpk):
@@ -317,8 +400,18 @@ def public_document_download(request, token, dpk):
         )
         inline = request.GET.get("inline") == "1"
         previewable = can_preview_in_browser(document)
+        if inline and needs_html_preview(document):
+            return _document_preview_page(
+                request, document,
+                reverse("groupes:public_document_download", args=[classe.token, document.pk]),
+            )
         if inline and not previewable:
-            raise Http404("Ce type de fichier ne peut pas être affiché dans le navigateur.")
+            if not can_download:
+                raise Http404("Ce fichier n’est pas disponible au téléchargement.")
+            return _document_preview_page(
+                request, document,
+                reverse("groupes:public_document_download", args=[classe.token, document.pk]),
+            )
         if can_download and not inline:
             response = FileResponse(
                 document.file.open("rb"), as_attachment=True,

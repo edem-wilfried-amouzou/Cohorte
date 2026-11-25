@@ -1,0 +1,20 @@
+{% load static %}<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ document.display_name }} · Aperçu</title><link rel="stylesheet" href="{% static 'css/tailwind.css' %}"></head>
+<body class="preview-document-body">
+  <main class="container preview-document-content">
+    <p class="eyebrow">Aperçu du fichier</p><h1>{{ document.display_name }}</h1>
+    {% if kind == "docx" %}
+      {% for paragraph in paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+      {% for table in tables %}<div class="table-wrap"><table><tbody>{% for row in table %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endfor %}
+    {% elif kind == "xlsx" %}
+      {% for sheet in sheets %}<section><h2>{{ sheet.name }}</h2><div class="table-wrap"><table><tbody>{% for row in sheet.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div></section>{% endfor %}
+    {% elif kind == "pptx" %}
+      {% for slide in slides %}<section><h2>Diapositive {{ forloop.counter }}</h2><p>{{ slide }}</p></section>{% empty %}<p>Cette présentation ne contient pas de texte lisible.</p>{% endfor %}
+    {% else %}
+      <p>Ce format ne peut pas être affiché directement dans le navigateur. Utilise le bouton Télécharger dans la fenêtre pour ouvrir le fichier avec une application adaptée.</p>
+      <p>{{ document.byte_size|filesizeformat }}</p>
+    {% endif %}
+  </main>
+</body>
+</html>

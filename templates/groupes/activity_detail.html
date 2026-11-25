@@ -19,6 +19,7 @@
     {% if can_edit %}<div class="activity-quickbar">
       <button class="btn" type="button" data-dialog-open="#create-group-dialog">+ Ajouter un groupe</button>
       <button class="btn ghost" type="button" data-dialog-open="#bulk-groups-dialog">Créer une série</button>
+      {% if can_manage %}<button class="btn ghost" type="button" data-dialog-open="#activity-groups-import-dialog">Importer des groupes</button>{% endif %}
     </div>
     <dialog class="modal" id="create-group-dialog" aria-labelledby="create-group-title"><div class="modal-head"><h2 id="create-group-title">Nouveau groupe</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_group_create' classe.pk activite.pk %}" class="modal-form">
       {% csrf_token %}<div class="modal-fields">{% include "partials/field.html" with field=group_form.number %}{% include "partials/field.html" with field=group_form.name %}{% include "partials/field.html" with field=group_form.capacity %}{% include "partials/field.html" with field=group_form.theme %}{% include "partials/field.html" with field=group_form.presentation_order %}</div><div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Créer le groupe</button></div>
@@ -26,6 +27,22 @@
     <dialog class="modal form-modal" id="bulk-groups-dialog" aria-labelledby="bulk-groups-title"><div class="modal-head"><h2 id="bulk-groups-title">Créer une série de groupes</h2><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_groups_bulk' classe.pk activite.pk %}" class="modal-form">
       {% csrf_token %}<div class="modal-fields">{% include "partials/field.html" with field=bulk.count %}{% include "partials/field.html" with field=bulk.capacity %}</div><div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Créer la série</button></div>
     </form></dialog>{% endif %}
+
+    {% if can_manage %}<dialog class="modal import-modal" id="activity-groups-import-dialog" aria-labelledby="activity-groups-import-title">
+      <div class="modal-head"><div><h2 id="activity-groups-import-title">Importer une répartition</h2><p class="muted small">Un fichier Excel ou CSV avec les colonnes « Groupe » et « Membres ».</p></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div>
+      <form method="post" action="{% url 'groupes:activity_groups_import' classe.pk activite.pk %}" enctype="multipart/form-data" class="modal-form stack import-form">
+        {% csrf_token %}
+        <div class="dropzone">
+          {{ group_import_form.file }}
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 20h14"/></svg>
+          <strong>Choisis un fichier ou dépose-le ici</strong>
+          <span class="muted small">.xlsx ou .csv, 2 Mo maximum</span>
+          <span class="dropzone-file" data-file-name hidden></span>
+        </div>
+        <p class="muted small">Sépare plusieurs membres d’une cellule par des virgules. Les noms partiels sont rapprochés; les cas ambigus sont signalés dans le bilan avant toute affectation incertaine.</p>
+        <div class="modal-actions"><button class="btn ghost" type="button" data-dialog-close>Annuler</button><button class="btn" type="submit">Importer la répartition</button></div>
+      </form>
+    </dialog>{% endif %}
 
     <section class="activity-groups-section" aria-labelledby="groups-title">
       <div class="section-heading"><div><p class="eyebrow">Répartition</p><h2 id="groups-title">Groupes</h2></div><span class="badge">{{ groupes|length }}</span></div>
@@ -62,12 +79,17 @@
       </div>
     </section>
 
-    <section class="card assignment-section"><div class="row between"><div><h3>Membres et répartition</h3><p class="muted small">Affecte une personne à un groupe ou change sa répartition.</p></div>{% if can_edit %}<button class="btn ghost small" type="button" data-dialog-open="#assign-member-dialog">+ Ajouter un membre</button>{% endif %}</div>
-      <div class="table-wrap"><table><thead><tr><th>Membre</th><th>Groupe</th><th>État</th></tr></thead><tbody>
-        {% for participation in participants %}<tr><td><strong>{{ participation.membre.last_name|default:participation.membre.full_name }}</strong>{% if participation.membre.last_name and participation.membre.first_name %}<div class="muted small">{{ participation.membre.first_name }}</div>{% endif %}</td><td>
+    <section class="card assignment-section"><div class="row between"><div><h3>Membres et répartition</h3><p class="muted small">Affecte une personne ou sélectionne plusieurs personnes pour un groupe.</p></div>{% if can_edit %}<button class="btn ghost small" type="button" data-dialog-open="#assign-member-dialog">+ Ajouter un membre</button>{% endif %}</div>
+      {% if can_edit %}<form id="activity-bulk-assign" method="post" action="{% url 'groupes:activity_assign_bulk' classe.pk activite.pk %}" class="bulk-toolbar" data-bulk-actions>
+        {% csrf_token %}<input type="hidden" name="bulk_action" value="assign"><span class="bulk-count"><span data-selected-count>0</span> sélectionnée(s)</span>
+        <label class="sr-only" for="activity-bulk-group">Groupe de destination</label><select id="activity-bulk-group" name="group_id" required><option value="">Choisir un groupe…</option>{% for groupe in groupes %}<option value="{{ groupe.pk }}">{{ groupe.short_label }}{% if groupe.name %} · {{ groupe.name }}{% endif %}</option>{% endfor %}</select>
+        <button class="btn small" type="submit">Affecter la sélection</button>
+      </form>{% endif %}
+      <div class="table-wrap"><table><thead><tr>{% if can_edit %}<th><input type="checkbox" data-select-all form="activity-bulk-assign" aria-label="Sélectionner toutes les personnes"></th>{% endif %}<th>Membre</th><th>Groupe</th><th>État</th></tr></thead><tbody>
+        {% for participation in participants %}<tr>{% if can_edit %}<td><input type="checkbox" form="activity-bulk-assign" name="member_ids" value="{{ participation.membre.pk }}" data-member-select aria-label="Sélectionner {{ participation.membre.full_name }}"></td>{% endif %}<td><strong>{{ participation.membre.last_name|default:participation.membre.full_name }}</strong>{% if participation.membre.last_name and participation.membre.first_name %}<div class="muted small">{{ participation.membre.first_name }}</div>{% endif %}</td><td>
           {% if can_edit %}<form method="post" action="{% url 'groupes:activity_assign' classe.pk activite.pk %}" class="activity-member-assignment">{% csrf_token %}<input type="hidden" name="membre" value="{{ participation.membre.pk }}"><label class="sr-only" for="member-group-{{ participation.membre.pk }}">Groupe de {{ participation.membre.full_name }}</label><select id="member-group-{{ participation.membre.pk }}" name="groupe"><option value="">Sans groupe</option>{% for groupe in groupes %}<option value="{{ groupe.pk }}" {% if participation.groupe_id == groupe.pk %}selected{% endif %}>{{ groupe.short_label }}{% if groupe.name %} · {{ groupe.name }}{% endif %}</option>{% endfor %}</select><button class="btn small" type="submit">Enregistrer</button></form>
           {% else %}{{ participation.groupe.label|default:"Sans groupe" }}{% endif %}
-        </td><td>{{ participation.status_label }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Aucune personne dans la classe.</td></tr>{% endfor %}
+        </td><td>{{ participation.status_label }}</td></tr>{% empty %}<tr><td colspan="4" class="muted">Aucune personne dans la classe.</td></tr>{% endfor %}
       </tbody></table></div>
     </section>
     {% if can_edit %}<dialog class="modal form-modal" id="assign-member-dialog" aria-labelledby="assign-member-title"><div class="modal-head"><div><p class="eyebrow">Répartition</p><h2 id="assign-member-title">Ajouter un membre à l’activité</h2></div><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div><form method="post" action="{% url 'groupes:activity_assign' classe.pk activite.pk %}" class="modal-form">

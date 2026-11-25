@@ -566,6 +566,7 @@
   .portal-upload-form > label { @apply text-sm font-semibold; }
   .portal-upload-form .portal-block-actions { @apply flex-col items-stretch sm:flex-row; }
   .portal-upload-form input[type="file"] { @apply min-w-0 flex-1; }
+  .portal-folder-create-form input[type="text"] { @apply min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2; }
   .portal-activity-list { @apply grid gap-2; }
   .portal-activity-row { @apply grid min-w-0 grid-cols-[2.75rem_minmax(0,1fr)] items-center gap-3 rounded-xl border border-line p-3 sm:grid-cols-[2.75rem_minmax(0,1fr)_auto] sm:px-4; }
   .portal-activity-copy { @apply grid min-w-0 gap-0.5; }
@@ -634,6 +635,10 @@
   .document-preview-modal { @apply w-[min(78rem,calc(100vw-1rem))] p-3 sm:p-5; height: min(88dvh, 60rem); }
   .document-preview-modal .modal-head { @apply mb-3; }
   .document-preview-frame { @apply block w-full rounded-xl border border-line bg-white; height: calc(min(88dvh, 60rem) - 6rem); }
+  .document-preview-modal:fullscreen { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; border: 0; border-radius: 0; }
+  .document-preview-modal:fullscreen .document-preview-frame { height: calc(100dvh - 6rem); }
+  .document-preview-modal.is-expanded { position: fixed; inset: 0; z-index: 100; width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; border: 0; border-radius: 0; }
+  .document-preview-modal.is-expanded .document-preview-frame { height: calc(100dvh - 6rem); }
   .document-modal .field + .field { @apply mt-0; }
   .permission-fields { @apply grid gap-3; }
   .permission-fields .check { @apply rounded-xl border border-line bg-surface-muted/60 p-3; }

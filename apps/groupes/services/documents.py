@@ -1,15 +1,20 @@
 """Petits outils pour les dossiers et leurs exports ZIP."""
 
 import mimetypes
+import os
 import shutil
 import tempfile
 import zipfile
+from xml.etree import ElementTree
 from pathlib import PurePosixPath
 
 from django.http import FileResponse
 
 from ..middleware import CSP
 from ..models import MAX_ARCHIVE_SIZE, Document
+
+MAX_PREVIEW_UNPACKED_SIZE = 100 * 1024 * 1024
+MAX_PREVIEW_ARCHIVE_ENTRIES = 10000
 
 
 def set_preview_headers(response):
@@ -20,13 +25,103 @@ def set_preview_headers(response):
 
 
 def can_preview_in_browser(document) -> bool:
-    """N'autorise en aperçu public que les formats passifs couramment affichés par un navigateur."""
+    """Formats affichés directement ou rendus en HTML sûr dans l’aperçu intégré."""
     content_type, _ = mimetypes.guess_type(document.display_name, strict=False)
-    return content_type in {
+    return os.path.splitext(document.display_name)[1].lower() in {".docx", ".xlsx", ".pptx"} or content_type in {
         "application/pdf", "text/plain", "text/csv",
-        "image/png", "image/jpeg", "image/gif", "image/webp", "image/avif",
-        "audio/mpeg", "audio/ogg", "audio/wav", "video/mp4", "video/webm",
+        "text/markdown", "application/json", "application/xml", "text/xml",
+        "image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp",
+        "audio/mpeg", "audio/ogg", "audio/wav", "audio/mp4", "audio/aac", "video/mp4", "video/webm",
     }
+
+
+def needs_html_preview(document) -> bool:
+    return os.path.splitext(document.display_name)[1].lower() in {".docx", ".xlsx", ".pptx"}
+
+
+def _office_archive_is_safe(source) -> bool:
+    try:
+        with zipfile.ZipFile(source) as archive:
+            entries = archive.infolist()
+            return len(entries) <= MAX_PREVIEW_ARCHIVE_ENTRIES and sum(entry.file_size for entry in entries) <= MAX_PREVIEW_UNPACKED_SIZE
+    except (OSError, zipfile.BadZipFile):
+        return False
+
+
+def build_document_preview(document):
+    """Extrait les formats Office installés sans exécuter ni intégrer leur contenu actif."""
+    extension = os.path.splitext(document.display_name)[1].lower()
+    if extension == ".docx":
+        try:
+            from docx import Document as WordDocument
+
+            with document.file.open("rb") as source:
+                if not _office_archive_is_safe(source):
+                    return {"kind": "unsupported"}
+                source.seek(0)
+                word = WordDocument(source)
+            paragraphs = [paragraph.text[:5000] for paragraph in word.paragraphs if paragraph.text.strip()][:1000]
+            tables = []
+            cell_budget = 5000
+            for table in word.tables[:20]:
+                rows = []
+                for row in table.rows[:100]:
+                    cells = [cell.text[:500] for cell in row.cells[:20]]
+                    rows.append(cells)
+                    cell_budget -= len(cells)
+                    if cell_budget <= 0:
+                        break
+                tables.append(rows)
+                if cell_budget <= 0:
+                    break
+            return {"kind": "docx", "paragraphs": paragraphs, "tables": tables}
+        except Exception:
+            return {"kind": "unsupported"}
+
+    if extension == ".xlsx":
+        try:
+            from openpyxl import load_workbook
+
+            with document.file.open("rb") as source:
+                if not _office_archive_is_safe(source):
+                    return {"kind": "unsupported"}
+                source.seek(0)
+                workbook = load_workbook(source, read_only=True, data_only=True)
+                sheets = []
+                cell_budget = 10000
+                for sheet in workbook.worksheets[:10]:
+                    rows = []
+                    for row_index, row in enumerate(sheet.iter_rows(values_only=True)):
+                        if row_index >= 200 or cell_budget <= 0:
+                            break
+                        cells = ["" if value is None else str(value)[:250] for value in row[:30]]
+                        rows.append(cells)
+                        cell_budget -= len(cells)
+                    sheets.append({"name": sheet.title[:100], "rows": rows})
+                workbook.close()
+            return {"kind": "xlsx", "sheets": sheets}
+        except Exception:
+            return {"kind": "unsupported"}
+
+    if extension == ".pptx":
+        try:
+            slides = []
+            with document.file.open("rb") as source, zipfile.ZipFile(source) as archive:
+                if sum(entry.file_size for entry in archive.infolist()) > MAX_PREVIEW_UNPACKED_SIZE:
+                    return {"kind": "unsupported"}
+                names = sorted(
+                    (name for name in archive.namelist() if name.startswith("ppt/slides/slide") and name.endswith(".xml")),
+                    key=lambda name: int(os.path.basename(name)[5:-4]) if os.path.basename(name)[5:-4].isdigit() else 0,
+                )
+                for name in names[:150]:
+                    root = ElementTree.fromstring(archive.read(name))
+                    text = [node.text for node in root.iter() if node.tag.endswith("}t") and node.text]
+                    slides.append(" · ".join(text)[:5000])
+            return {"kind": "pptx", "slides": slides}
+        except Exception:
+            return {"kind": "unsupported"}
+
+    return {"kind": "unsupported"}
 
 
 def folder_is_public(folder) -> bool:

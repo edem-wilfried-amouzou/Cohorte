@@ -3,6 +3,7 @@ import csv
 import difflib
 import io
 import re
+import zipfile
 from dataclasses import dataclass
 
 from django.db import transaction
@@ -12,6 +13,7 @@ from django.utils import timezone
 from ..models import Groupe, Membre, Participation, normalize
 
 MAX_BYTES = 2 * 1024 * 1024
+MAX_XLSX_UNPACKED_BYTES = 30 * 1024 * 1024
 MAX_ROWS = 3000
 MAX_MEMBERS = 5000
 MAX_GROUP_NUMBER = 500
@@ -84,6 +86,8 @@ def _parse_rows(rows) -> list[GroupRow]:
             raise ImportError_(f"Ligne {line_number} : indique un numéro de groupe entre 1 et {MAX_GROUP_NUMBER}.")
         # La cellule Membres accepte plusieurs personnes séparées par une virgule ou un point-virgule.
         names = tuple(name.strip() for name in re.split(r"[,;\n]+", str(members_value or "")) if name.strip())
+        if any(len(name) > 120 for name in names):
+            raise ImportError_(f"Ligne {line_number} : chaque nom doit faire 120 caractères maximum.")
         member_count += len(names)
         if member_count > MAX_MEMBERS:
             raise ImportError_(f"Maximum {MAX_MEMBERS} noms par import.")
@@ -133,6 +137,13 @@ def parse_upload(upload) -> list[GroupRow]:
     if ext == ".xlsx":
         if not raw.startswith(b"PK"):
             raise ImportError_("Ce fichier n'est pas un vrai fichier Excel (.xlsx).")
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                entries = archive.infolist()
+                if len(entries) > 10000 or sum(entry.file_size for entry in entries) > MAX_XLSX_UNPACKED_BYTES:
+                    raise ImportError_("Ce fichier Excel est trop complexe ou trop volumineux à décompresser.")
+        except zipfile.BadZipFile as exc:
+            raise ImportError_("Ce fichier n'est pas un vrai fichier Excel (.xlsx).") from exc
         from openpyxl import load_workbook
 
         workbook = None

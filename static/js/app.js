@@ -76,8 +76,9 @@ document.addEventListener("click", async (event) => {
 });
 
 document.querySelectorAll("[data-bulk-actions]").forEach((form) => {
-  const all = form.querySelector("[data-select-all]");
-  const rows = [...form.querySelectorAll("[data-member-select]")];
+  const controls = [...form.elements];
+  const all = controls.find((control) => control.matches("[data-select-all]"));
+  const rows = controls.filter((control) => control.matches("[data-member-select]"));
   const counter = form.querySelector("[data-selected-count]");
   const action = form.querySelector("[name='bulk_action']");
   const group = form.querySelector("[name='group_id']");

@@ -14,7 +14,9 @@
     {% include "partials/field.html" with field=form.name %}
     {% include "partials/field.html" with field=form.description %}
     {% include "partials/field.html" with field=form.allow_unlisted %}
-    {% if not creating %}{% include "partials/field.html" with field=form.external_intake_open %}{% include "partials/field.html" with field=form.public_show_reference %}{% include "partials/field.html" with field=form.public_documents %}{% endif %}
+    {% if not creating %}{% include "partials/field.html" with field=form.external_intake_open %}{% include "partials/field.html" with field=form.public_show_reference %}{% include "partials/field.html" with field=form.public_documents %}
+      <div class="permission-fields">{% include "partials/field.html" with field=form.allow_public_folder_creation %}{% include "partials/field.html" with field=form.allow_public_uploads %}</div>
+    {% endif %}
     <div class="field"><button class="btn" type="submit">{% if creating %}Créer la classe{% else %}Enregistrer{% endif %}</button></div>
   </form>{% elif not creating %}<section class="card w-full max-w-none"><h2>Réglages de la classe</h2><p>{{ classe.name }}</p><p class="muted small">Ces réglages sont réservés au propriétaire de la classe.</p></section>{% endif %}
 

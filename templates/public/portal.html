@@ -29,11 +29,18 @@
       {% include "public/_member_directory.html" %}
     {% elif view == 'documents' and public_documents_enabled %}
       <section class="portal-active-view" id="portal-documents" aria-labelledby="portal-documents-title">
-        <div class="portal-section-heading"><div><p class="eyebrow">Ressources partagées</p><h2 id="portal-documents-title">{% if current_folder %}{{ current_folder.name }}{% else %}Bibliothèque{% endif %}</h2><p class="muted">Consulte les fichiers publiés{% if current_folder and current_folder.allow_public_uploads %} ou dépose un document dans ce dossier{% endif %}.</p></div><span class="badge">{{ all_public_folders|length }} dossier{{ all_public_folders|length|pluralize }} · {{ documents|length }} fichier{{ documents|length|pluralize }}</span></div>
+        <div class="portal-section-heading"><div><p class="eyebrow">Ressources partagées</p><h2 id="portal-documents-title">{% if current_folder %}{{ current_folder.name }}{% else %}Bibliothèque{% endif %}</h2><p class="muted">Consulte les fichiers publiés{% if public_uploads_enabled and current_folder.allow_public_uploads %} ou dépose un document dans ce dossier{% endif %}.</p></div><span class="badge">{{ all_public_folders|length }} dossier{{ all_public_folders|length|pluralize }} · {{ documents|length }} fichier{{ documents|length|pluralize }}</span></div>
         <nav class="explorer-breadcrumbs portal-breadcrumbs" aria-label="Chemin de la bibliothèque">
           <a href="?view=documents">Tous les dossiers</a>
           {% for folder in folder_breadcrumbs %}<span aria-hidden="true">/</span>{% if not forloop.last %}<a href="?view=documents&amp;folder={{ folder.pk }}">{{ folder.name }}</a>{% else %}<span aria-current="page">{{ folder.name }}</span>{% endif %}{% endfor %}
         </nav>
+
+        {% if public_folder_creation_enabled %}<form method="post" action="{% url 'groupes:public_document_folder_create' classe.token %}" class="portal-upload-form portal-folder-create-form">
+          {% csrf_token %}{{ public_folder_form.parent }}
+          <div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+          <label for="public-folder-name">Créer un dossier{% if current_folder %} dans « {{ current_folder.name }} »{% endif %}</label>
+          <div class="portal-block-actions"><input id="public-folder-name" name="name" type="text" maxlength="100" required placeholder="Nom du dossier"><button class="btn" type="submit">Créer le dossier</button></div>
+        </form>{% endif %}
 
         <div class="portal-explorer">
           {% for folder in folders %}<div class="portal-explorer-row">
@@ -43,14 +50,14 @@
 
           {% for document in documents %}<div class="portal-explorer-row portal-file-row">
             <span class="portal-file-icon" aria-hidden="true">↧</span><span class="portal-file-copy"><strong>{{ document.display_name }}</strong><small>{{ document.byte_size|filesizeformat }}</small></span>
-            {% if document.public_previewable %}<a class="btn ghost small" href="{% url 'groupes:public_document_download' classe.token document.pk %}?inline=1" data-document-preview data-preview-url="{% url 'groupes:public_document_download' classe.token document.pk %}?inline=1" data-preview-title="{{ document.display_name }}" data-preview-downloadable="{{ document.public_downloadable|yesno:'true,false' }}">Aperçu</a>{% endif %}
+            {% if document.public_previewable or document.public_downloadable %}<a class="btn ghost small" href="{% url 'groupes:public_document_download' classe.token document.pk %}?inline=1" data-document-preview data-preview-url="{% url 'groupes:public_document_download' classe.token document.pk %}?inline=1" data-preview-title="{{ document.display_name }}" data-preview-downloadable="{{ document.public_downloadable|yesno:'true,false' }}">Aperçu</a>{% endif %}
             {% if document.public_downloadable %}<a class="btn ghost small" href="{% url 'groupes:public_document_download' classe.token document.pk %}">Télécharger</a>{% elif not document.public_previewable %}<span class="badge">Lecture indisponible</span>{% endif %}
           </div>{% endfor %}
 
           {% if not folders and not documents %}<p class="muted small portal-empty-note">{% if current_folder %}Aucun sous-dossier ni fichier ici.{% else %}Aucun dossier ni fichier n’est actuellement partagé.{% endif %}</p>{% endif %}
         </div>
 
-        {% if current_folder.allow_public_uploads %}<form method="post" enctype="multipart/form-data" action="{% url 'groupes:public_document_upload' classe.token current_folder.pk %}" class="portal-upload-form">
+        {% if public_uploads_enabled and current_folder and current_folder.allow_public_uploads %}<form method="post" enctype="multipart/form-data" action="{% url 'groupes:public_document_upload' classe.token current_folder.pk %}" class="portal-upload-form">
           {% csrf_token %}<input type="hidden" name="folder" value="{{ current_folder.pk }}">
           <div class="hp" aria-hidden="true"><label>Ne pas remplir<input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
           <label for="public-file-{{ current_folder.pk }}">Déposer un fichier dans « {{ current_folder.name }} » (25 Mo maximum)</label>
@@ -90,7 +97,7 @@
 </main>
 
 <dialog class="modal document-preview-modal" id="document-preview-dialog" aria-labelledby="document-preview-title">
-  <div class="modal-head"><div><p class="eyebrow">Aperçu du document</p><h2 id="document-preview-title">Document</h2></div><div class="row"><a class="btn ghost small" data-preview-download href="#">Télécharger</a><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div></div>
+  <div class="modal-head"><div><p class="eyebrow">Aperçu du document</p><h2 id="document-preview-title">Document</h2></div><div class="row"><button class="btn ghost small" type="button" data-preview-prev aria-label="Document précédent">←</button><button class="btn ghost small" type="button" data-preview-next aria-label="Document suivant">→</button><button class="btn ghost small" type="button" data-preview-fullscreen aria-label="Agrandir l’aperçu">⛶</button><a class="btn ghost small" data-preview-download href="#">Télécharger</a><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div></div>
   <iframe class="document-preview-frame" title="Aperçu du document" src="about:blank"></iframe>
 </dialog>
 {% endblock %}

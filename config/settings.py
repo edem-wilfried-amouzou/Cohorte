@@ -47,7 +47,6 @@ CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
 if render_hostname and f"https://{render_hostname}" not in CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS.append(f"https://{render_hostname}")
 
-
 # URL de l'admin configurable (évite /admin/ par défaut). Ex : DJANGO_ADMIN_URL=gestion-x7k
 ADMIN_URL = os.environ.get("DJANGO_ADMIN_URL", "admin").strip("/") + "/"
 
@@ -98,14 +97,17 @@ TEMPLATES = [
 
 if os.environ.get("DATABASE_URL"):
     database_url = os.environ["DATABASE_URL"]
+    db_conn_max_age = max(0, int(os.environ.get("DB_CONN_MAX_AGE", "60")))
     DATABASES = {
         "default": dj_database_url.parse(
             database_url,
-            conn_max_age=600,
+            conn_max_age=db_conn_max_age,
             ssl_require=not DEBUG and database_url.lower().startswith(("postgres://", "postgresql://")),
         )
     }
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 elif os.environ.get("POSTGRES_DB"):
+    db_conn_max_age = max(0, int(os.environ.get("DB_CONN_MAX_AGE", "60")))
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -114,7 +116,8 @@ elif os.environ.get("POSTGRES_DB"):
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
             "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
             "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-            "CONN_MAX_AGE": 60,
+            "CONN_MAX_AGE": db_conn_max_age,
+            "CONN_HEALTH_CHECKS": True,
             "OPTIONS": {"sslmode": os.environ.get("POSTGRES_SSLMODE", "require")},
         }
     }

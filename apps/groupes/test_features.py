@@ -1,10 +1,17 @@
+import tempfile
+from io import BytesIO
+
 from django.contrib.auth.models import User
 from django.core.cache import cache
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Activite, AuditLog, Classe, Collaborateur, Commentaire, Groupe, Membre, Participation
+from .models import (
+    Activite, AuditLog, Classe, Collaborateur, Commentaire, Document, DossierDocument,
+    Groupe, Membre, Participation,
+)
 
 
 class FeatureBase(TestCase):
@@ -109,6 +116,118 @@ class PosterTests(FeatureBase):
     def test_stranger_cannot_open_poster(self):
         self.client.force_login(User.objects.create_user("intrus", password="motdepasse-solide-3"))
         self.assertEqual(self.client.get(reverse("groupes:poster", args=[self.classe.pk])).status_code, 404)
+
+
+class GroupImportAndAssignmentTests(FeatureBase):
+    def test_csv_import_creates_groups_and_matches_class_members(self):
+        upload = SimpleUploadedFile(
+            "groupes.csv",
+            "Groupe,Membres\nGroupe 3,Kossi AMEGAH,Afi TCHALIM\n".encode(),
+            content_type="text/csv",
+        )
+        response = self.client.post(
+            reverse("groupes:activity_groups_import", args=self.args()), {"file": upload},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["result"]["assigned"], 2)
+        imported = Groupe.objects.get(classe=self.classe, activite=self.activity, number=3)
+        self.assertSetEqual(
+            set(Participation.objects.filter(activite=self.activity, groupe=imported).values_list("membre_id", flat=True)),
+            {self.ama.pk, self.afi.pk},
+        )
+
+    def test_bulk_assign_moves_selected_members_to_existing_group(self):
+        response = self.client.post(
+            reverse("groupes:activity_assign_bulk", args=self.args()),
+            {"group_id": self.group.pk, "member_ids": [self.ama.pk, self.afi.pk]},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Participation.objects.filter(activite=self.activity, groupe=self.group).count(), 2)
+        self.assertFalse(Participation.objects.filter(activite=self.activity, groupe=self.other_group).exists())
+
+
+class PublicLibraryTests(FeatureBase):
+    def setUp(self):
+        super().setUp()
+        self.temp_media = tempfile.TemporaryDirectory()
+        self.settings_override = override_settings(
+            MEDIA_ROOT=self.temp_media.name,
+            STORAGES={
+                "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+                "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+            },
+        )
+        self.settings_override.enable()
+        self.addCleanup(self.settings_override.disable)
+        self.addCleanup(self.temp_media.cleanup)
+        self.classe.public_documents = True
+        self.classe.allow_public_folder_creation = True
+        self.classe.allow_public_uploads = True
+        self.classe.save(update_fields=["public_documents", "allow_public_folder_creation", "allow_public_uploads"])
+
+    def test_public_page_can_create_folder_and_upload_document(self):
+        create_response = self.client.post(
+            reverse("groupes:public_document_folder_create", args=[self.classe.token]), {"name": "Ressources"},
+        )
+        folder = DossierDocument.objects.get(classe=self.classe, name="Ressources")
+        self.assertTrue(folder.is_public)
+        self.assertTrue(folder.allow_public_uploads)
+        self.assertRedirects(
+            create_response,
+            f"{reverse('groupes:public_portal', args=[self.classe.token])}?view=documents&folder={folder.pk}",
+            fetch_redirect_response=False,
+        )
+
+        upload = SimpleUploadedFile("consigne.txt", b"Bonjour", content_type="text/plain")
+        response = self.client.post(
+            reverse("groupes:public_document_upload", args=[self.classe.token, folder.pk]),
+            {"folder": folder.pk, "file": upload},
+        )
+        self.assertEqual(response.status_code, 302)
+        document = Document.objects.get(classe=self.classe, folder=folder)
+        self.assertEqual(document.display_name, "consigne.txt")
+        preview = self.client.get(
+            reverse("groupes:public_document_download", args=[self.classe.token, document.pk]), {"inline": "1"},
+        )
+        self.assertEqual(preview.status_code, 200)
+        self.assertIn("text/plain", preview["Content-Type"])
+
+    def test_class_upload_permission_is_required_even_if_folder_allows_uploads(self):
+        folder = DossierDocument.objects.create(
+            classe=self.classe, name="Ouvert", is_public=True, allow_public_uploads=True,
+        )
+        self.classe.allow_public_uploads = False
+        self.classe.save(update_fields=["allow_public_uploads"])
+        response = self.client.post(
+            reverse("groupes:public_document_upload", args=[self.classe.token, folder.pk]),
+            {"folder": folder.pk, "file": SimpleUploadedFile("x.txt", b"x")},
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_word_document_is_rendered_inside_the_preview(self):
+        from docx import Document as WordDocument
+
+        word = WordDocument()
+        word.add_paragraph("Consigne consultable dans Cohorte")
+        content = BytesIO()
+        word.save(content)
+        folder = DossierDocument.objects.create(
+            classe=self.classe, name="Documents", is_public=True, allow_public_uploads=True,
+        )
+        upload = SimpleUploadedFile(
+            "consigne.docx", content.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        self.client.post(
+            reverse("groupes:public_document_upload", args=[self.classe.token, folder.pk]),
+            {"folder": folder.pk, "file": upload},
+        )
+        document = Document.objects.get(classe=self.classe, folder=folder)
+        preview = self.client.get(
+            reverse("groupes:public_document_download", args=[self.classe.token, document.pk]), {"inline": "1"},
+        )
+        self.assertEqual(preview.status_code, 200)
+        self.assertContains(preview, "Consigne consultable dans Cohorte")
 
 
 class AuditTests(FeatureBase):

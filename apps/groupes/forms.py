@@ -12,7 +12,10 @@ from .models import (
 class ClasseForm(forms.ModelForm):
     class Meta:
         model = Classe
-        fields = ["name", "description", "allow_unlisted", "external_intake_open", "public_show_reference", "public_documents"]
+        fields = [
+            "name", "description", "allow_unlisted", "external_intake_open", "public_show_reference",
+            "public_documents", "allow_public_folder_creation", "allow_public_uploads",
+        ]
         widgets = {
             "deadline": forms.DateTimeInput(attrs={"type": "datetime-local"}, format="%Y-%m-%dT%H:%M"),
         }
@@ -49,6 +52,24 @@ class GroupeForm(forms.ModelForm):
 class BulkGroupsForm(forms.Form):
     count = forms.IntegerField(label="Nombre de groupes", min_value=1, max_value=100)
     capacity = forms.IntegerField(label="Capacité de chacun", min_value=1, max_value=500, required=False)
+
+
+class ActivityGroupsImportForm(forms.Form):
+    file = forms.FileField(
+        label="Fichier Excel ou CSV",
+        widget=forms.ClearableFileInput(attrs={"accept": ".xlsx,.csv"}),
+    )
+
+
+class PublicFolderCreateForm(forms.Form):
+    name = forms.CharField(label="Nom du dossier", max_length=100)
+    parent = forms.IntegerField(required=False, min_value=1, widget=forms.HiddenInput)
+
+    def clean_name(self):
+        name = " ".join("".join(character for character in self.cleaned_data["name"] if character.isprintable()).split())
+        if not name or "/" in name or "\\" in name or name in {".", ".."}:
+            raise forms.ValidationError("Choisis un nom de dossier valide.")
+        return name
 
 
 class ActiviteForm(forms.ModelForm):
@@ -255,7 +276,7 @@ class DossierDocumentForm(forms.ModelForm):
         self.fields["parent"].queryset = classe.dossiers_documents.order_by("name") if classe else DossierDocument.objects.none()
         self.fields["parent"].required = False
         self.fields["parent"].empty_label = "Aucun (dossier principal)"
-        self.fields["allow_public_uploads"].help_text = "Les visiteurs pourront ajouter des fichiers depuis la page publique de la classe."
+        self.fields["allow_public_uploads"].help_text = "Les visiteurs pourront déposer des fichiers si le réglage général de la classe est aussi activé."
         self.fields["allow_public_downloads"].help_text = (
             "Désactive cette option pour ouvrir les fichiers compatibles dans le navigateur et masquer le ZIP. "
             "Un aperçu affiché dans un navigateur peut toujours être enregistré par le visiteur."

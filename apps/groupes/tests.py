@@ -285,13 +285,13 @@ class OwnerActionsTests(Base):
         self.ama.save(update_fields=["custom_data"])
         url = reverse("groupes:public_members", args=[self.classe.token])
 
-        response = self.client.get(url)
+        response = self.client.get(url, follow=True)
         self.assertContains(response, "Ville")
         self.assertContains(response, "Lomé")
         self.assertNotContains(response, "Téléphone privé")
         self.assertNotContains(response, "secret-228")
 
-        response = self.client.get(url, {"q": "secret-228"})
+        response = self.client.get(url, {"q": "secret-228"}, follow=True)
         self.assertNotContains(response, "AMEGAH Kossi")
 
     def test_external_submission_requires_owner_approval(self):

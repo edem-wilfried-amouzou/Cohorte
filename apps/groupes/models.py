@@ -8,6 +8,7 @@ import unicodedata
 from django.conf import settings
 from django.db import models
 from django.db.models import F
+from django.db.models.functions import Lower
 from django.utils import timezone
 
 MAX_DOCUMENT_SIZE = 25 * 1024 * 1024
@@ -79,11 +80,20 @@ class Classe(models.Model):
         "Afficher la section Documents sur la page publique", default=False,
         help_text="Active la rubrique Documents sur la page complète partagée avec la classe.",
     )
+    allow_public_folder_creation = models.BooleanField(
+        "Autoriser la création de dossiers depuis le lien public", default=False,
+        help_text="Les visiteurs peuvent créer des dossiers publics, à la racine ou dans un dossier visible.",
+    )
+    allow_public_uploads = models.BooleanField(
+        "Autoriser les dépôts depuis le lien public", default=False,
+        help_text="Autorise les dépôts dans les dossiers publics dont l’option d’ajout est aussi activée.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "classe"
+        indexes = [models.Index(fields=["owner", "-created_at"], name="classe_owner_created_idx")]
 
     def __str__(self):
         return self.name
@@ -114,6 +124,7 @@ class Collaborateur(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["classe", "user"], name="collaborateur_unique_par_classe"),
         ]
+        indexes = [models.Index(fields=["user", "classe"], name="collaborateur_user_classe_idx")]
 
 
 class Activite(models.Model):
@@ -136,6 +147,7 @@ class Activite(models.Model):
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "activité"
+        indexes = [models.Index(fields=["classe", "-created_at"], name="activite_classe_created_idx")]
 
     def __str__(self):
         return self.title
@@ -262,6 +274,7 @@ class Membre(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["classe", "search_name"], name="membre_nom_unique_par_classe"),
         ]
+        indexes = [models.Index(F("classe"), Lower("last_name"), Lower("first_name"), name="membre_classe_name_order_idx")]
 
     def __str__(self):
         return self.full_name
@@ -312,6 +325,10 @@ class Participation(models.Model):
         ordering = ["membre__search_name"]
         constraints = [
             models.UniqueConstraint(fields=["activite", "membre"], name="participation_unique_par_activite"),
+        ]
+        indexes = [
+            models.Index(fields=["activite", "groupe"], name="part_act_group_idx"),
+            models.Index(fields=["activite", "responded_at"], name="part_act_answer_idx"),
         ]
 
     @property
@@ -371,6 +388,7 @@ class DemandeMembre(models.Model):
 
     class Meta:
         ordering = ["-submitted_at"]
+        indexes = [models.Index(fields=["classe", "status", "-submitted_at"], name="demande_classe_status_date_idx")]
 
     @property
     def status_label(self) -> str:
@@ -441,6 +459,7 @@ class DossierDocument(models.Model):
                 name="dossier_nom_unique_par_parent",
             ),
         ]
+        indexes = [models.Index(fields=["classe", "parent"], name="dossier_classe_parent_idx")]
 
     def __str__(self):
         return self.name
@@ -475,6 +494,7 @@ class Document(models.Model):
 
     class Meta:
         ordering = ["display_name", "id"]
+        indexes = [models.Index(fields=["classe", "folder"], name="document_classe_folder_idx")]
 
     def __str__(self):
         return self.display_name

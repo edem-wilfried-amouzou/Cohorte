@@ -13,6 +13,12 @@ services:
         generateValue: true
       - key: DJANGO_BEHIND_PROXY
         value: "1"
+      - key: SECURE_SSL_REDIRECT
+        value: "1"
+      - key: SESSION_COOKIE_SECURE
+        value: "1"
+      - key: CSRF_COOKIE_SECURE
+        value: "1"
       - key: DATABASE_URL
         sync: false
       - key: DB_CONN_MAX_AGE

@@ -24,6 +24,7 @@ from ..forms import (
     GroupeForm,
     ImportForm,
     MembreForm,
+    PublicFolderCreateForm,
 )
 from ..models import (
     Activite, ChampMembre, Classe, Collaborateur, DemandeMembre, Document, DossierDocument,
@@ -296,6 +297,9 @@ def public_portal(request, token):
         "selected_groups": selected_groups,
         "total_group_members": total_group_members,
         "public_documents_enabled": classe.public_documents,
+        "public_folder_creation_enabled": classe.public_documents and classe.allow_public_folder_creation,
+        "public_uploads_enabled": classe.public_documents and classe.allow_public_uploads,
+        "public_folder_form": PublicFolderCreateForm(initial={"parent": current_folder.pk if current_folder else None}),
         "public_list_editing": _public_editing_open(classe),
         "member_count": classe.membres.count(),
         "portal_url": request.build_absolute_uri(reverse("groupes:public_portal", args=[classe.token])),

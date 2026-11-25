@@ -57,11 +57,11 @@
 
         {% for document in documents %}
           <div class="explorer-entry" role="listitem">
-            <a class="explorer-item" href="{% if document.previewable %}{% url 'groupes:document_download' classe.pk document.pk %}?inline=1{% else %}{% url 'groupes:document_download' classe.pk document.pk %}{% endif %}" {% if document.previewable %}data-document-preview data-preview-url="{% url 'groupes:document_download' classe.pk document.pk %}?inline=1" data-preview-title="{{ document.display_name }}" data-preview-downloadable="true"{% endif %}>
+            <a class="explorer-item" href="{% url 'groupes:document_download' classe.pk document.pk %}?inline=1" data-document-preview data-preview-url="{% url 'groupes:document_download' classe.pk document.pk %}?inline=1" data-preview-title="{{ document.display_name }}" data-preview-downloadable="true">
               <span class="explorer-icon file-icon" aria-hidden="true">↧</span>
               <span class="explorer-item-copy"><strong>{{ document.display_name }}</strong><small>Ajouté le {{ document.uploaded_at|date:"d/m/Y" }} · {{ document.byte_size|filesizeformat }}</small></span>
               <span class="badge {% if document.public_access %}affecte{% endif %}">{% if document.public_access %}Public{% else %}Privé{% endif %}</span>
-              <span class="explorer-chevron" aria-hidden="true">{% if document.previewable %}›{% else %}↓{% endif %}</span>
+              <span class="explorer-chevron" aria-hidden="true">›</span>
             </a>
             <a class="btn ghost small explorer-download" href="{% url 'groupes:document_download' classe.pk document.pk %}" aria-label="Télécharger {{ document.display_name }}" title="Télécharger">↓</a>
             {% if can_manage %}<details class="explorer-menu"><summary aria-label="Actions pour {{ document.display_name }}">···</summary><div class="explorer-menu-panel">
@@ -81,7 +81,7 @@
 </main>
 
 <dialog class="modal document-preview-modal" id="document-preview-dialog" aria-labelledby="document-preview-title">
-  <div class="modal-head"><div><p class="eyebrow">Aperçu du document</p><h2 id="document-preview-title">Document</h2></div><div class="row"><a class="btn ghost small" data-preview-download href="#">Télécharger</a><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div></div>
+  <div class="modal-head"><div><p class="eyebrow">Aperçu du document</p><h2 id="document-preview-title">Document</h2></div><div class="row"><button class="btn ghost small" type="button" data-preview-prev aria-label="Document précédent">←</button><button class="btn ghost small" type="button" data-preview-next aria-label="Document suivant">→</button><button class="btn ghost small" type="button" data-preview-fullscreen aria-label="Agrandir l’aperçu">⛶</button><a class="btn ghost small" data-preview-download href="#">Télécharger</a><button class="icon-button" type="button" data-dialog-close aria-label="Fermer">×</button></div></div>
   <iframe class="document-preview-frame" title="Aperçu du document" src="about:blank"></iframe>
 </dialog>
 
