@@ -405,7 +405,7 @@ def to_pdf(ds: Dataset) -> bytes:
     buffer = io.BytesIO()
     SimpleDocTemplate(buffer, pagesize=page_size, leftMargin=1.5 * cm, rightMargin=1.5 * cm, topMargin=1.5 * cm,
                       bottomMargin=1.8 * cm, title=ds.title).build(story, onFirstPage=footer, onLaterPages=footer)
-    return buffer.getvalue()
+    return buffer.getvalue() 
 
 
 EXPORTERS = {
