@@ -119,7 +119,7 @@
           {% if can_manage %}<form method="post" action="{% url 'groupes:activity_view_regenerate' classe.pk activite.pk %}" data-confirm="Le lien public actuel sera révoqué.">{% csrf_token %}<button class="linkbtn" type="submit">Révoquer et renouveler le lien</button></form>{% endif %}
         {% else %}<p class="muted small">Le lien de consultation apparaîtra ici quand le partage sera activé.</p>{% endif %}
       </section>
-      <section class="activity-option-block"><div class="share-heading"><span class="share-icon">↓</span><div><h3>Télécharger un rapport</h3><p>Exporter les réponses et la répartition.</p></div></div><div class="activity-download-links">
+      <section class="activity-option-block"><div class="share-heading"><span class="share-icon">↓</span><div><h3>Télécharger un rapport</h3><p>Le fichier Excel contient les groupes et leurs membres, prêts à réimporter, ainsi que la liste détaillée.</p></div></div><div class="activity-download-links">
         <a href="{% url 'groupes:activity_export' classe.pk activite.pk 'pdf' %}">PDF <span>Prêt à partager</span></a><a href="{% url 'groupes:activity_export' classe.pk activite.pk 'xlsx' %}">Excel <span>À analyser</span></a><a href="{% url 'groupes:activity_export' classe.pk activite.pk 'docx' %}">Word <span>À modifier</span></a><a href="{% url 'groupes:activity_export' classe.pk activite.pk 'csv' %}">CSV <span>Tableur</span></a>
       </div></section>
       {% if can_edit %}<details class="activity-option-block activity-settings"><summary>Réglages de l’activité</summary><form method="post" action="{% url 'groupes:activity_update' classe.pk activite.pk %}" class="stack">

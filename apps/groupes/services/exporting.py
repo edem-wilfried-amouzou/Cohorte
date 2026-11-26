@@ -227,6 +227,18 @@ def to_xlsx(ds: Dataset) -> bytes:
     for c in ws[last]:
         c.font = Font(bold=True)
 
+    # Format simple également accepté par l'import d'une répartition.
+    # Les feuilles détaillées ci-dessous conservent les informations par membre.
+    sheet(
+        wb.create_sheet("Groupes"),
+        ["Groupe", "Membres"],
+        [
+            (g.short_label, ", ".join(m.full_name for m in g.membres.all()))
+            for g in ds.groupes
+        ],
+        [20, 100],
+    )
+
     sheet(
         wb.create_sheet("Liste complète"),
         ["Groupe", "Thème", "Ordre de passage", "N°", "Nom", "Prénoms", "Sexe", "Matricule", "Statut"],
