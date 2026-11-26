@@ -2,24 +2,43 @@
 {% block title %}Journaux · Console super admin{% endblock %}
 {% block content %}
 <main class="container console-shell">
-  <header class="page-head"><div><p class="eyebrow">Administration de la plateforme</p><h1>Journaux d’activité</h1><p class="muted">Actions sensibles, adresse IP et informations techniques du navigateur au moment de l’action.</p></div><a class="btn ghost" href="{% url 'admin:groupes_auditlog_changelist' %}">Admin Django ↗</a></header>
+  <header class="page-head"><div><p class="eyebrow">Administration de la plateforme</p><h1>Journaux d’activité</h1><p class="muted">Historique en lecture seule des actions, connexions et accès à la console.</p></div><a class="btn" href="{% url 'console:logs_export' %}{% if query_string %}?{{ query_string }}{% endif %}">Exporter CSV</a></header>
   <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a href="{% url 'console:users' %}">Utilisateurs</a><a href="{% url 'console:feedbacks' %}">Retours</a><a aria-current="page" href="{% url 'console:logs' %}">Journaux</a><a href="{% url 'console:technical' %}">Documentation</a></nav>
-  <form method="get" class="card console-filter">
-    <label class="sr-only" for="log-search">Chercher dans les journaux</label><input id="log-search" type="search" name="q" value="{{ q }}" placeholder="Compte, classe, action, détail, IP, pays ou navigateur">
-    <select name="action" aria-label="Filtrer par action"><option value="">Toutes les actions</option>{% for item in actions %}<option value="{{ item }}" {% if action == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select>
-    <button class="btn" type="submit">Filtrer</button>
+  <nav class="audit-shortcuts" aria-label="Période rapide"><a href="?period=today">Aujourd’hui</a><a href="?period=7d">7 jours</a><a href="?period=30d">30 jours</a><a href="{% url 'console:logs' %}">Tout l’historique</a></nav>
+  <form method="get" class="card audit-filter">
+    <div class="audit-filter-grid">
+      <label>Recherche globale<input type="search" name="q" value="{{ filters.q }}" placeholder="Compte, URL, ID, IP, pays ou ville"></label>
+      <label>Du<input type="date" name="from" value="{{ filters.from }}"></label>
+      <label>Au<input type="date" name="to" value="{{ filters.to }}"></label>
+      <label>Utilisateur<select name="user"><option value="">Tous</option>{% for account in users %}<option value="{{ account.pk }}" {% if filters.user == account.pk|stringformat:"s" %}selected{% endif %}>{{ account.username }}</option>{% endfor %}</select></label>
+      <label>Action<select name="action"><option value="">Toutes</option>{% for item in actions %}<option value="{{ item }}" {% if filters.action == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <label>Type d’objet<input type="text" name="object_type" value="{{ filters.object_type }}" placeholder="groupes.Classe"></label>
+      <label>ID d’objet<input type="text" name="object_id" value="{{ filters.object_id }}"></label>
+      <label>Adresse IP<input type="text" name="ip" value="{{ filters.ip }}" inputmode="decimal"></label>
+      <label>Pays<select name="country"><option value="">Tous</option>{% for code, name in countries %}<option value="{{ code }}" {% if filters.country == code %}selected{% endif %}>{{ name|default:code }} ({{ code }})</option>{% endfor %}</select></label>
+      <label>Ville<input type="text" name="city" value="{{ filters.city }}"></label>
+      <label>Résultat<select name="result"><option value="">Tous</option><option value="success" {% if filters.result == "success" %}selected{% endif %}>Succès</option><option value="failure" {% if filters.result == "failure" %}selected{% endif %}>Échec / refus</option></select></label>
+    </div>
+    <div class="audit-filter-actions"><button class="btn" type="submit">Appliquer les filtres</button><a class="btn ghost" href="{% url 'console:logs' %}">Effacer</a></div>
   </form>
-  <p class="muted small">Le pays est renseigné lorsque le site est proxifié par Cloudflare et que la collecte est activée. Les anciennes entrées n’ont pas encore ces détails.</p>
-  <section class="card flat"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Compte</th><th>Action</th><th>Classe</th><th>Détail</th><th>Adresse IP</th><th>Pays</th><th>Appareil</th><th>Navigateur</th><th>Système</th></tr></thead><tbody>
-    {% for event in page.object_list %}<tr><td>{{ event.created_at|date:"d/m/Y H:i:s" }}</td><td>{{ event.user.username|default:"Anonyme" }}</td><td><code>{{ event.action }}</code></td><td>{{ event.classe.name|default:"—" }}</td><td>{{ event.detail|default:"—" }}</td><td><code>{{ event.ip|default:"—" }}</code></td><td>{% if event.country %}{{ event.country }} ({{ event.country_code }}){% else %}—{% endif %}</td><td>{{ event.device|default:"—" }}</td><td>{% if event.browser %}{{ event.browser }}{% else %}—{% endif %}{% if event.user_agent %}<details class="small"><summary>Agent complet</summary><code class="block max-w-xs break-all">{{ event.user_agent }}</code></details>{% endif %}</td><td>{{ event.operating_system|default:"—" }}</td></tr>
-    {% empty %}<tr><td colspan="10" class="muted">Aucun événement ne correspond.</td></tr>{% endfor %}
+  <p class="muted small">La localisation est calculée à l’enregistrement depuis les en-têtes Cloudflare de confiance ou une base GeoLite2 configurée. Une ville peut être approximative.</p>
+  <section class="card flat"><div class="table-wrap"><table class="audit-table"><thead><tr><th>Date et heure</th><th>Utilisateur</th><th>Action</th><th>Objet</th><th>URL</th><th>IP</th><th>Localisation</th><th>Code</th><th>Résultat</th></tr></thead><tbody>
+    {% for event in page.object_list %}<tr class="{% if not event.succeeded or event.response_status >= 400 %}audit-failure{% elif 'supprim' in event.action or 'suppression' in event.action %}audit-delete{% endif %}">
+      <td>{{ event.created_at|date:"d/m/Y H:i:s" }}</td>
+      <td>{{ event.actor_identifier|default:"Anonyme" }}<br><span class="muted small">ID {{ event.actor_user_id|default:"—" }} · {{ event.actor_role|default:"—" }}</span></td>
+      <td><a href="{% url 'console:log_detail' event.pk %}"><code>{{ event.action }}</code></a></td>
+      <td>{% if event.object_label %}{{ event.object_label }}{% elif event.classe %}{{ event.classe.name }}{% else %}—{% endif %}{% if event.object_id %}<br><span class="muted small">{{ event.object_type }} #{{ event.object_id }}</span>{% endif %}</td>
+      <td><code>{{ event.path|default:"—" }}</code></td><td><code>{{ event.ip|default:"Inconnue" }}</code></td>
+      <td>{% if event.country_code %}{{ event.country_flag }} {{ event.country }}{% if event.city %}<br><span class="muted small">{{ event.city }}{% if event.region %}, {{ event.region }}{% endif %}</span>{% endif %}{% else %}Inconnu{% endif %}</td>
+      <td>{{ event.response_status }}</td><td>{% if event.succeeded and event.response_status < 400 %}<span class="badge affecte">Succès</span>{% else %}<span class="badge audit-status-failure">Échec</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="9" class="muted">Aucun événement ne correspond.</td></tr>{% endfor %}
   </tbody></table></div></section>
-  {% if page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination">{% if page.has_previous %}<a href="?action={{ action|urlencode }}&amp;q={{ q|urlencode }}&amp;page={{ page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?action={{ action|urlencode }}&amp;q={{ q|urlencode }}&amp;page={{ page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
+  {% if page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination">{% if page.has_previous %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ page.number }} sur {{ page.paginator.num_pages }}</span>{% if page.has_next %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
   <section class="console-admin-logs"><div class="section-heading"><div><p class="eyebrow">Admin Django</p><h2>Modifications de l’administration</h2></div></div>
     <div class="card flat"><div class="table-wrap"><table><thead><tr><th>Date</th><th>Compte admin</th><th>Action</th><th>Objet</th><th>Type</th></tr></thead><tbody>
       {% for event in admin_page.object_list %}<tr><td>{{ event.action_time|date:"d/m/Y H:i:s" }}</td><td>{{ event.user.username }}</td><td>{{ event.get_action_flag_display }}</td><td>{{ event.object_repr }}</td><td>{{ event.content_type.name|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5" class="muted">Aucune modification dans l’administration.</td></tr>{% endfor %}
     </tbody></table></div></div>
-    {% if admin_page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination des modifications admin">{% if admin_page.has_previous %}<a href="?q={{ q|urlencode }}&amp;action={{ action|urlencode }}&amp;admin_page={{ admin_page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ admin_page.number }} sur {{ admin_page.paginator.num_pages }}</span>{% if admin_page.has_next %}<a href="?q={{ q|urlencode }}&amp;action={{ action|urlencode }}&amp;admin_page={{ admin_page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
+    {% if admin_page.paginator.num_pages > 1 %}<nav class="pager" aria-label="Pagination des modifications admin">{% if admin_page.has_previous %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}admin_page={{ admin_page.previous_page_number }}">Précédent</a>{% endif %}<span class="muted">Page {{ admin_page.number }} sur {{ admin_page.paginator.num_pages }}</span>{% if admin_page.has_next %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}admin_page={{ admin_page.next_page_number }}">Suivant</a>{% endif %}</nav>{% endif %}
   </section>
 </main>
 {% endblock %}

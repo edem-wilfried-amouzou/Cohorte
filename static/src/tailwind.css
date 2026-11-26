@@ -703,6 +703,34 @@
   .console-recent-logs li > div { @apply grid min-w-0; }
   .console-recent-logs li span, .console-recent-logs small { @apply text-xs text-ink-muted; overflow-wrap: anywhere; }
   .console-recent-logs small { @apply shrink-0 text-right; }
+  .audit-shortcuts { @apply mb-3 flex flex-wrap gap-2 text-sm; }
+  .audit-shortcuts a { @apply rounded-lg border border-line bg-surface px-3 py-2 font-semibold text-brand-700; }
+  .audit-filter { @apply mb-4 grid gap-4; }
+  .audit-filter-grid { @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4; }
+  .audit-filter-grid label { @apply grid content-start gap-1 text-xs font-semibold text-ink-muted; }
+  .audit-filter-grid input, .audit-filter-grid select { @apply min-w-0 w-full text-sm; }
+  .audit-filter-actions { @apply flex flex-wrap gap-2; }
+  .audit-table td { @apply align-top; }
+  .audit-failure td { @apply bg-danger-soft; }
+  .audit-status-failure { @apply bg-danger-soft text-danger; }
+  .audit-delete td { @apply bg-warning-soft; }
+  .audit-detail-card { @apply mb-4; }
+  .audit-detail-card h2 { @apply mb-4 text-xl; }
+  .audit-detail-grid { @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3; }
+  .audit-detail-grid > div { @apply min-w-0; }
+  .audit-detail-grid dt { @apply text-xs font-semibold uppercase tracking-wide text-ink-muted; }
+  .audit-detail-grid dd { @apply mt-1 break-words text-sm; }
+  .audit-detail-grid .audit-detail-wide { @apply sm:col-span-2 lg:col-span-3; }
+  .audit-detail-grid code, .audit-detail-card td pre { @apply whitespace-pre-wrap break-words text-xs; }
+  .audit-before { @apply bg-danger-soft/60; }
+  .audit-after { @apply bg-success-soft/60; }
+  .staff-profile-form { @apply grid gap-5; }
+  .staff-profile-fields { @apply grid grid-cols-1 gap-4 sm:grid-cols-2; }
+  .staff-profile-fields .field { @apply m-0; }
+  .staff-permissions { @apply grid grid-cols-1 gap-2 border-t border-line pt-4 sm:grid-cols-2; }
+  .staff-permissions legend, .staff-permissions > p, .staff-permissions > span { @apply sm:col-span-2; }
+  .staff-permission { @apply flex items-start gap-2 rounded-lg border border-line bg-surface-muted/50 p-2 text-sm; }
+  .staff-permission input { @apply mt-1 size-4 shrink-0 accent-brand-600; }
   .error-screen { @apply grid min-h-screen place-items-center p-4 text-center; }
 }
 

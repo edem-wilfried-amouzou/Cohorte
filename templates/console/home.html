@@ -8,11 +8,23 @@
     <a class="stat" href="{% url 'console:users' %}"><b>{{ user_count }}</b><span>Utilisateurs</span></a>
     <a class="stat" href="{% url 'console:users' %}?role=admins"><b>{{ staff_count }}</b><span>Administrateurs</span></a>
     <a class="stat" href="{% url 'console:users' %}?role=superusers"><b>{{ superuser_count }}</b><span>Superadmins</span></a>
+    <a class="stat" href="{% url 'console:logs' %}?action=connexion"><b>{{ login_success_24h }}</b><span>Connexions · 24 h</span></a>
+    <a class="stat" href="{% url 'console:logs' %}?action=connexion_echec"><b>{{ login_failure_24h }}</b><span>Échecs · 24 h</span></a>
+    <a class="stat" href="{% url 'console:logs' %}?result=failure"><b>{{ denied_24h }}</b><span>Accès refusés · 24 h</span></a>
     <a class="stat" href="{% url 'console:feedbacks' %}"><b>{{ feedback_new_count }}</b><span>Retours à traiter</span></a>
     <div class="stat"><b>{{ class_count }}</b><span>Classes</span></div>
     <div class="stat"><b>{{ activity_count }}</b><span>Activités</span></div>
   </section>
   <div class="console-grid">
+    <section class="card"><div class="section-heading"><div><p class="eyebrow">Activité · 24 h</p><h2>Utilisateurs actifs</h2></div></div>
+      <ul class="console-recent-logs">{% for item in active_users %}<li><div><strong><a href="{% url 'console:logs' %}?user={{ item.actor_user_id }}">{{ item.actor_identifier }}</a></strong><span>{{ item.total }} action(s)</span></div></li>{% empty %}<li class="muted">Aucune activité authentifiée.</li>{% endfor %}</ul>
+    </section>
+    <section class="card"><div class="section-heading"><div><p class="eyebrow">Connexions réussies · 24 h</p><h2>Pays</h2></div></div>
+      <ul class="console-recent-logs">{% for item in countries %}<li><div><strong>{{ item.country|default:item.country_code }} ({{ item.country_code }})</strong><span>{{ item.total }} connexion(s)</span></div></li>{% empty %}<li class="muted">Aucune localisation de connexion disponible.</li>{% endfor %}</ul>
+    </section>
+    <section class="card"><div class="section-heading"><div><p class="eyebrow">Sécurité</p><h2>Actions sensibles récentes</h2></div><a href="{% url 'console:logs' %}">Tous les journaux</a></div>
+      <ul class="console-recent-logs">{% for event in sensitive_logs %}<li><div><strong><a href="{% url 'console:log_detail' event.pk %}">{{ event.action }}</a></strong><span>{{ event.detail|default:event.object_label|default:"—" }}</span></div><small>{{ event.created_at|date:"d/m/Y H:i" }}<br>{{ event.actor_identifier|default:"Anonyme" }}</small></li>{% empty %}<li class="muted">Aucune action sensible récente.</li>{% endfor %}</ul>
+    </section>
     <section class="card"><div class="section-heading"><div><p class="eyebrow">Contributions</p><h2>Derniers retours</h2></div><a href="{% url 'console:feedbacks' %}">Voir la boîte de réception</a></div>
       <ul class="console-recent-logs">{% for item in recent_feedback %}<li><div><strong><a href="{% url 'console:feedback_detail' item.pk %}">{{ item.kind_label }} · {{ item.subject }}</a></strong><span>{{ item.submitter_name|default:item.submitter_email|default:"Anonyme" }}</span></div><small>{{ item.created_at|date:"d/m/Y H:i" }}<br>{{ item.status_label }}</small></li>{% empty %}<li class="muted">Aucun retour reçu.</li>{% endfor %}</ul>
     </section>
@@ -21,7 +33,7 @@
       <p class="muted small">Les contrôles reflètent les réglages du serveur. Ils ne remplacent pas un audit complet.</p>
     </section>
     <section class="card"><div class="section-heading"><div><p class="eyebrow">Activité récente</p><h2>Dernières actions</h2></div><a href="{% url 'console:logs' %}">Voir tout</a></div>
-      <ul class="console-recent-logs">{% for event in recent_logs %}<li><div><strong>{{ event.get_action_display|default:event.action }}</strong><span>{{ event.detail|default:"—" }}</span></div><small>{{ event.created_at|date:"d/m/Y H:i" }}<br>{{ event.user.username|default:"Anonyme" }}</small></li>{% empty %}<li class="muted">Aucun journal enregistré.</li>{% endfor %}</ul>
+      <ul class="console-recent-logs">{% for event in recent_logs %}<li><div><strong>{{ event.get_action_display|default:event.action }}</strong><span>{{ event.detail|default:"—" }}</span></div><small>{{ event.created_at|date:"d/m/Y H:i" }}<br>{{ event.actor_identifier|default:event.user.username|default:"Anonyme" }}</small></li>{% empty %}<li class="muted">Aucun journal enregistré.</li>{% endfor %}</ul>
     </section>
     <section class="card"><div class="section-heading"><div><p class="eyebrow">Admin Django</p><h2>Modifications d’administration</h2></div><a href="{% url 'console:logs' %}">Journaux complets</a></div>
       <ul class="console-recent-logs">{% for event in recent_admin_logs %}<li><div><strong>{{ event.user.username }} · {{ event.get_action_flag_display }}</strong><span>{{ event.object_repr }}</span></div><small>{{ event.action_time|date:"d/m/Y H:i" }}<br>{{ event.content_type.name|default:"Compte" }}</small></li>{% empty %}<li class="muted">Aucune modification dans l’admin.</li>{% endfor %}</ul>

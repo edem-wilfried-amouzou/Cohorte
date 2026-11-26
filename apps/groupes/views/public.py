@@ -37,7 +37,7 @@ from ..services.documents import can_preview_in_browser, folder_is_public
 from ..services.exporting import EXPORTERS, collect, collect_activity, filename
 from ..services.qr import qr_svg
 from ..throttle import too_many
-from ..audit import log_action
+from ..audit import log_action, snapshot_fields
 from ._common import (
     _classe,
     _activite,
@@ -391,6 +391,7 @@ def public_member_edit(request, token, mpk):
     if blocked:
         return blocked
     member = get_object_or_404(Membre, pk=mpk, classe=classe)
+    before = snapshot_fields(member, "sex", "reference", "custom_data")
     form = PublicListForm(request.POST, classe=classe, mode="edit")
     if form.is_valid():
         if form.cleaned_data.get("sex"):
@@ -405,7 +406,10 @@ def public_member_edit(request, token, mpk):
                 data.pop(key, None)
         member.custom_data = data
         member.save(update_fields=["sex", "reference", "custom_data"])
-        log_action(request, "modif_publique", classe=classe, detail=member.full_name)
+        log_action(
+            request, "modif_publique", classe=classe, target=member, detail=member.full_name,
+            before=before, after=snapshot_fields(member, "sex", "reference", "custom_data"),
+        )
         messages.success(request, f"Informations de {member.full_name} mises à jour.")
     else:
         messages.error(request, _form_error_text(form))

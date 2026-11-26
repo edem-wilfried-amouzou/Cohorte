@@ -43,10 +43,13 @@ def _classe(request, pk, *, write=False, owner=False, full=False) -> Classe:
         return classe
     collaborator = Collaborateur.objects.filter(classe=classe, user=request.user).first()
     if collaborator is None or owner:
+        log_action(request, "acces_refuse", classe=classe, detail=f"Classe #{classe.pk}", succeeded=False, response_status=404)
         raise Http404
     if write and collaborator.role == Collaborateur.Role.VIEWER:
+        log_action(request, "acces_refuse", classe=classe, detail=f"Classe #{classe.pk} · lecteur", succeeded=False, response_status=404)
         raise Http404
     if full and collaborator.role != Collaborateur.Role.CO_DELEGATE:
+        log_action(request, "acces_refuse", classe=classe, detail=f"Classe #{classe.pk} · permission insuffisante", succeeded=False, response_status=404)
         raise Http404
     request.class_role = collaborator.role
     return classe

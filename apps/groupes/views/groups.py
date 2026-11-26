@@ -33,7 +33,7 @@ from ..services.allocation import auto_assign
 from ..services.exporting import EXPORTERS, collect, collect_activity, filename
 from ..services.qr import qr_svg
 from ..throttle import too_many
-from ..audit import log_action
+from ..audit import log_action, snapshot_fields
 from ._common import (
     _classe,
     _activite,
@@ -63,6 +63,8 @@ def group_create(request, pk):
         group.classe = classe
         group.activite = None
         group.save()
+        log_action(request, "groupe_cree", classe=classe, target=group, detail=group.label,
+                   after=snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader"))
         messages.success(request, f"{group.short_label} créé.")
     else:
         messages.error(request, " ".join(e for errs in form.errors.values() for e in errs))
@@ -84,6 +86,8 @@ def groups_bulk(request, pk):
         for n in range(1, form.cleaned_data["count"] + 1) if n not in existing
     ]
     Groupe.objects.bulk_create(new)
+    log_action(request, "groupes_crees", classe=classe, target=classe,
+               detail=f"{len(new)} groupe(s)", after={"numeros": [group.number for group in new]})
     messages.success(request, f"{len(new)} groupe(s) créé(s).")
     return redirect("groupes:groups", pk=classe.pk)
 
@@ -95,7 +99,10 @@ def group_edit(request, pk, gpk):
     group = get_object_or_404(Groupe, pk=gpk, classe=classe, activite__isnull=True)
     form = GroupeForm(request.POST or None, instance=group, classe=classe)
     if request.method == "POST" and form.is_valid():
+        before = snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader")
         form.save()
+        log_action(request, "groupe_modifie", classe=classe, target=group, detail=group.label,
+                   before=before, after=snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader"))
         messages.success(request, "Groupe modifié.")
         return redirect("groupes:groups", pk=classe.pk)
     return render(request, "groupes/group_form.html", {"form": form, "classe": classe, "group": group, "tab": "groups"})
@@ -106,7 +113,8 @@ def group_edit(request, pk, gpk):
 def group_delete(request, pk, gpk):
     classe = _classe(request, pk, write=True)
     group = get_object_or_404(Groupe, pk=gpk, classe=classe, activite__isnull=True)
-    log_action(request, "groupe_supprime", classe=classe, detail=group.label)
+    log_action(request, "groupe_supprime", classe=classe, target=group, detail=group.label,
+               before=snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader"))
     group.delete()
     messages.success(request, "Groupe supprimé. Ses membres sont maintenant sans groupe.")
     return redirect("groupes:groups", pk=classe.pk)

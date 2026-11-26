@@ -44,7 +44,8 @@ Une colonne de noms suffit. Si la première ligne contient des titres, sont reco
 - Inscription : code d'invitation facultatif (`SIGNUP_INVITE_CODE`). Réinitialisation du mot de passe par e-mail.
 - URL de l'admin configurable (`DJANGO_ADMIN_URL`).
 - Liens partagés de 128 bits. Option « masquer les matricules » ; la recherche publique ne porte que sur les champs affichés.
-- Journal d'audit (`AuditLog`, visible dans la Console superadmin et l'admin) : IP, pays si le trafic passe par le proxy Cloudflare, navigateur, système, appareil et actions sensibles. Active `TRUST_CLOUDFLARE_HEADERS=1` uniquement si l’application est réellement proxifiée par Cloudflare et que l’accès direct à l’origine est bloqué; le mode DNS seul ne suffit pas.
+- Journal d'audit (`AuditLog`, visible dans la Console superadmin) : consultation, action, utilisateur et rôle, URL de route, résultat HTTP, IP, navigateur, changements et localisation figée au moment de l’événement. La localisation utilise Cloudflare si `TRUST_CLOUDFLARE_HEADERS=1` ou GeoLite2-City si `GEOIP_CITY_DB` pointe sur le fichier `.mmdb`. Active les en-têtes Cloudflare seulement si l’origine n’est accessible que par le proxy. Mets à jour la base GeoLite2 chaque mois.
+- Les journaux sont en lecture seule pour les administrateurs et exclus des suppressions ordinaires. La migration vérifie qu’un seul super-admin existe avant d’ajouter la contrainte en base. Planifie `python manage.py purge_audit_logs --confirm` au moins une fois par mois pour appliquer la conservation d’un an. `scripts/backup.sh` fournit les sauvegardes PostgreSQL compressées; planifie son exécution selon le rythme de sauvegarde voulu.
 - Compte : export JSON de ses données et suppression du compte (page *Mon compte*).
 - Import validé (extension, taille, signature xlsx), exports protégés contre l'injection de formules.
 - Mots de passe : 10 caractères minimum, validateurs Django activés.
@@ -53,7 +54,7 @@ Une colonne de noms suffit. Si la première ligne contient des titres, sont reco
 - `/exposes/` réunit les activités dont la consultation publique est activée. Chaque classe a aussi une page de partage avec ses activités et ses dossiers publics.
 - Les documents sont rangés dans des dossiers généraux ou liés à une activité. Le propriétaire active la rubrique publique dans les réglages, puis choisit les dossiers et fichiers visibles, le téléchargement et le dépôt public. Les aperçus compatibles s’ouvrent dans le navigateur. Limites : 25 Mo par fichier, 250 Mo par classe et 100 Mo par archive ZIP.
 - `/retour/` reçoit les bugs, réclamations et propositions; les superadmins les traitent dans **Console → Retours**.
-- `/console/` est réservé aux superadmins : comptes, admins, retours, contrôles de configuration et journaux Cohorte/Django Admin.
+- `/console/` est réservé aux superadmins : comptes, création de profils staff à permissions ciblées, retours, contrôles de configuration et journaux Cohorte/Django Admin.
 
 ## Expérience utilisateur
 

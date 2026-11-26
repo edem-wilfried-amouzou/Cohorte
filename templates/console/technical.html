@@ -24,6 +24,9 @@
     <tr><td><code>DATABASE_URL</code></td><td>URL de connexion à PostgreSQL ou à une autre base prise en charge par Django.</td></tr>
     <tr><td><code>DJANGO_ALLOWED_HOSTS</code> et <code>DJANGO_CSRF_TRUSTED_ORIGINS</code></td><td>Hôtes et origines autorisés si l’application utilise un domaine personnalisé.</td></tr>
     <tr><td><code>DJANGO_ADMIN_URL</code></td><td>Chemin de l’admin Django. La console Cohorte reste disponible sous <code>/console/</code>.</td></tr>
+    <tr><td><code>TRUST_CLOUDFLARE_HEADERS</code></td><td>À activer seulement derrière Cloudflare avec l’accès direct à l’origine bloqué; permet de lire le pays et l’IP transmis par le proxy.</td></tr>
+    <tr><td><code>GEOIP_CITY_DB</code></td><td>Chemin vers la base locale GeoLite2-City au format <code>.mmdb</code>. La mise à jour mensuelle est à planifier côté hébergement.</td></tr>
+    <tr><td><code>EMAIL_HOST</code>, <code>EMAIL_HOST_USER</code>, <code>EMAIL_HOST_PASSWORD</code></td><td>Configuration SMTP utilisée pour les alertes de sécurité et la réinitialisation de mot de passe.</td></tr>
     <tr><td><code>MEDIA_ROOT</code></td><td>Répertoire des documents. En production, le monter sur un disque persistant ou configurer un stockage objet.</td></tr>
     <tr><td><code>SENTRY_DSN</code></td><td>Active la remontée d’erreurs vers Sentry, sans collecte de données personnelles par défaut.</td></tr>
   </tbody></table></div></section>
@@ -36,6 +39,13 @@
     <li>En production, HTTPS, les cookies sécurisés, HSTS et les en-têtes de sécurité sont configurés par les paramètres Django.</li>
     <li>Le service worker ne met pas en cache les pages privées ni les données de classe.</li>
   </ul><p class="msg warning">Les documents de production dépendent du stockage persistant configuré pour <code>MEDIA_ROOT</code>. Prévoir une sauvegarde distincte des fichiers et de la base.</p></section>
+
+  <section class="technical-section"><h2>Journaux d’audit</h2><ul class="technical-list">
+    <li>Les événements sont conservés en lecture seule. Les consultations de la console et les exports CSV y sont ajoutés.</li>
+    <li>Planifier mensuellement <code>python manage.py purge_audit_logs --confirm</code> pour supprimer les événements vieux de plus d’un an.</li>
+    <li>Le pays, la région et la ville sont résolus une fois à l’écriture. Une IP locale, une base absente ou une adresse inconnue donne une localisation inconnue.</li>
+    <li>Les alertes e-mail couvrent les échecs de connexion répétés, un nouveau pays, un déplacement géographique improbable, les suppressions groupées et les refus répétés.</li>
+  </ul></section>
 
   <section class="technical-section"><h2>Diagnostic rapide</h2><ul class="technical-list">
     <li>État applicatif et base : ouvrir <code>/sante/</code>.</li>

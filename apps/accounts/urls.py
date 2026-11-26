@@ -7,7 +7,7 @@ app_name = "accounts"
 
 urlpatterns = [
     path("connexion/", views.ThrottledLoginView.as_view(), name="login"),
-    path("deconnexion/", auth_views.LogoutView.as_view(), name="logout"),
+    path("deconnexion/", views.AuditedLogoutView.as_view(), name="logout"),
     path("inscription/", views.signup, name="signup"),
     path("profil/", views.profile, name="profile"),
     path("profil/supprimer/", views.delete_account, name="delete_account"),

@@ -36,7 +36,7 @@ from ..services.allocation import auto_assign
 from ..services.exporting import EXPORTERS, collect, collect_activity, filename
 from ..services.qr import qr_svg
 from ..throttle import too_many
-from ..audit import log_action
+from ..audit import log_action, snapshot_fields
 from ._common import (
     _classe,
     _activite,
@@ -75,6 +75,8 @@ def classe_create(request):
         classe = form.save(commit=False)
         classe.owner = request.user
         classe.save()
+        log_action(request, "classe_creee", classe=classe, target=classe, detail=classe.name,
+                   after=snapshot_fields(classe, "name", "description", "allow_unlisted", "external_intake_open", "public_show_reference", "public_documents"))
         messages.success(request, "Classe créée. Ajoute maintenant ta liste de personnes.")
         return redirect("groupes:import", pk=classe.pk)
     return render(request, "groupes/classe_form.html", {"form": form, "creating": True})
@@ -107,10 +109,14 @@ def collaborators(request, pk):
         if user.pk == request.user.pk:
             form.add_error("account", "Tu es déjà propriétaire de cette classe.")
         else:
-            Collaborateur.objects.update_or_create(
+            existing = Collaborateur.objects.filter(classe=classe, user=user).first()
+            before = snapshot_fields(existing, "role")
+            collaborator, _ = Collaborateur.objects.update_or_create(
                 classe=classe, user=user, defaults={"role": form.cleaned_data["role"]},
             )
-            log_action(request, "equipe_ajout", classe=classe, detail=f"{user.username} ({form.cleaned_data['role']})")
+            log_action(request, "equipe_ajout", classe=classe, target=collaborator,
+                       detail=f"{user.username} ({form.cleaned_data['role']})",
+                       before=before, after=snapshot_fields(collaborator, "role"))
             messages.success(request, f"Accès mis à jour pour {user.get_full_name() or user.username}.")
             return redirect("groupes:collaborators", pk=classe.pk)
     return render(request, "groupes/collaborators.html", {
@@ -125,7 +131,9 @@ def collaborators(request, pk):
 def collaborator_remove(request, pk, cpk):
     classe = _classe(request, pk, owner=True)
     collaborator = get_object_or_404(Collaborateur, pk=cpk, classe=classe)
-    log_action(request, "equipe_retrait", classe=classe, detail=collaborator.user.username)
+    log_action(request, "equipe_retrait", classe=classe, target=collaborator,
+               detail=collaborator.user.username,
+               before=snapshot_fields(collaborator, "role", "user", "classe"))
     collaborator.delete()
     messages.success(request, "Accès du collaborateur retiré.")
     return redirect("groupes:collaborators", pk=classe.pk)
@@ -157,6 +165,8 @@ def activity_create(request, pk):
         activity = form.save(commit=False)
         activity.classe = classe
         activity.save()
+        log_action(request, "activite_creee", classe=classe, target=activity, detail=activity.title,
+                   after=snapshot_fields(activity, "title", "kind", "is_public", "is_open", "deadline"))
         messages.success(request, "Activité créée. Tu peux maintenant créer ses groupes.")
         return redirect("groupes:activity_detail", pk=classe.pk, apk=activity.pk)
     return render(request, "groupes/activities.html", {
@@ -223,6 +233,8 @@ def activity_group_create(request, pk, apk):
         group = form.save(commit=False)
         group.classe, group.activite = activity.classe, activity
         group.save()
+        log_action(request, "groupe_activite_cree", classe=activity.classe, target=group, detail=group.label,
+                   after=snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader"))
         messages.success(request, f"{group.short_label} créé.")
     else:
         messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
@@ -236,7 +248,10 @@ def activity_group_edit(request, pk, apk, gpk):
     group = get_object_or_404(Groupe, pk=gpk, activite=activity)
     form = GroupeForm(request.POST, instance=group, classe=activity.classe, activite=activity)
     if form.is_valid():
+        before = snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader")
         form.save()
+        log_action(request, "groupe_activite_modifie", classe=activity.classe, target=group, detail=group.label,
+                   before=before, after=snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader"))
         messages.success(request, f"{group.short_label} modifié.")
     else:
         messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
@@ -248,6 +263,8 @@ def activity_group_edit(request, pk, apk, gpk):
 def activity_group_delete(request, pk, apk, gpk):
     activity = _activite(request, pk, apk, write=True)
     group = get_object_or_404(Groupe, pk=gpk, activite=activity)
+    log_action(request, "groupe_activite_supprime", classe=activity.classe, target=group, detail=group.label,
+               before=snapshot_fields(group, "number", "name", "capacity", "theme", "presentation_order", "leader"))
     group.delete()
     messages.success(request, "Groupe supprimé. Les membres restent dans la classe et passent sans groupe pour cette activité.")
     return redirect("groupes:activity_detail", pk=pk, apk=apk)
@@ -267,6 +284,9 @@ def activity_groups_bulk(request, pk, apk):
         for number in range(1, form.cleaned_data["count"] + 1) if number not in existing
     ]
     Groupe.objects.bulk_create(groups)
+    log_action(request, "groupes_activite_crees", classe=activity.classe, target=activity,
+               detail=f"{len(groups)} groupe(s) · {activity.title}",
+               after={"numeros": [group.number for group in groups]})
     messages.success(request, f"{len(groups)} groupe(s) créé(s).")
     return redirect("groupes:activity_detail", pk=pk, apk=apk)
 
@@ -292,7 +312,9 @@ def activity_groups_import(request, pk, apk):
 
     log_action(
         request, "groupes_activite_importes", classe=activity.classe,
-        detail=f"{activity.title} · {result['assigned']} affectation(s)",
+        target=activity, detail=f"{activity.title} · {result['assigned']} affectation(s)",
+        after={"created_groups": result.get("created_groups", 0), "assigned": result["assigned"]},
+        response_status=200,
     )
     return render(request, "groupes/activity_group_import_result.html", {
         "classe": activity.classe,
@@ -316,10 +338,15 @@ def activity_assign(request, pk, apk):
         if group.capacity is not None and current >= group.capacity and (existing is None or existing.groupe_id != group.pk):
             messages.error(request, f"{group.short_label} est complet.")
             return redirect("groupes:activity_detail", pk=pk, apk=apk)
-    Participation.objects.update_or_create(
+    participation = Participation.objects.filter(activite=activity, membre=member).first()
+    before = snapshot_fields(participation, "groupe", "responded_at")
+    participation, _ = Participation.objects.update_or_create(
         activite=activity, membre=member,
         defaults={"groupe": group, "responded_at": timezone.now()},
     )
+    log_action(request, "affectation_activite_modifiee", classe=activity.classe, target=participation,
+               detail=f"{member.full_name} · {activity.title}", before=before,
+               after=snapshot_fields(participation, "groupe", "responded_at"))
     messages.success(request, f"Affectation de {member.full_name} mise à jour.")
     return redirect("groupes:activity_detail", pk=pk, apk=apk)
 
@@ -382,7 +409,9 @@ def activity_assign_bulk(request, pk, apk):
 
     log_action(
         request, "membres_affectes_activite", classe=activity.classe,
-        detail=f"{len(members)} personne(s) · {activity.title} · {group.label}",
+        target=activity, detail=f"{len(members)} personne(s) · {activity.title} · {group.label}",
+        before={"member_ids": member_ids[:100]},
+        after={"group_id": group.pk, "group": group.label, "assigned_count": len(members)},
     )
     messages.success(request, f"{len(members)} personne(s) affectée(s) à {group.label}.")
     return redirect("groupes:activity_detail", pk=pk, apk=apk)
@@ -414,7 +443,10 @@ def activity_update(request, pk, apk):
     activity = _activite(request, pk, apk, write=True)
     form = ActiviteForm(request.POST, instance=activity)
     if form.is_valid():
+        before = snapshot_fields(activity, "title", "kind", "is_public", "is_open", "deadline")
         form.save()
+        log_action(request, "activite_modifiee", classe=activity.classe, target=activity, detail=activity.title,
+                   before=before, after=snapshot_fields(activity, "title", "kind", "is_public", "is_open", "deadline"))
         messages.success(request, "Réglages de l’activité enregistrés.")
     else:
         messages.error(request, " ".join(error for errors in form.errors.values() for error in errors))
@@ -425,7 +457,8 @@ def activity_update(request, pk, apk):
 @require_POST
 def activity_delete(request, pk, apk):
     activity = _activite(request, pk, apk, write=True, full=True)
-    log_action(request, "activite_supprimee", classe=activity.classe, detail=activity.title)
+    log_action(request, "activite_supprimee", classe=activity.classe, target=activity, detail=activity.title,
+               before=snapshot_fields(activity, "title", "kind", "is_public", "is_open", "deadline"))
     activity.delete()
     messages.success(request, "Activité supprimée.")
     return redirect("groupes:activities", pk=pk)
@@ -437,7 +470,11 @@ def classe_settings(request, pk):
     classe = _classe(request, pk, owner=request.method == "POST")
     form = ClasseForm(request.POST or None, instance=classe)
     if request.method == "POST" and form.is_valid():
+        before = snapshot_fields(classe, "name", "description", "allow_unlisted", "external_intake_open", "public_show_reference", "public_documents", "allow_public_folder_creation", "allow_public_uploads")
         form.save()
+        log_action(request, "classe_reglages_modifies", classe=classe, target=classe, detail=classe.name,
+                   before=before,
+                   after=snapshot_fields(classe, "name", "description", "allow_unlisted", "external_intake_open", "public_show_reference", "public_documents", "allow_public_folder_creation", "allow_public_uploads"))
         messages.success(request, "Réglages enregistrés.")
         return redirect("groupes:settings", pk=classe.pk)
     return render(request, "groupes/classe_form.html", {
@@ -459,7 +496,8 @@ def classe_regenerate(request, pk):
 @require_POST
 def classe_delete(request, pk):
     classe = _classe(request, pk, owner=True)
-    log_action(request, "classe_supprimee", detail=classe.name)
+    log_action(request, "classe_supprimee", classe=classe, target=classe, detail=classe.name,
+               before=snapshot_fields(classe, "name", "description", "allow_unlisted", "external_intake_open", "public_show_reference", "public_documents"))
     classe.delete()
     messages.success(request, "Classe supprimée.")
     return redirect("groupes:dashboard")

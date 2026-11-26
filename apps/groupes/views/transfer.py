@@ -80,7 +80,9 @@ def export_view(request, pk, fmt):
     if fmt not in EXPORTERS:
         raise Http404
     build, content_type = EXPORTERS[fmt]
-    response = HttpResponse(build(collect(classe)), content_type=content_type)
+    content = build(collect(classe))
+    log_action(request, "export_classe", classe=classe, target=classe, detail=fmt)
+    response = HttpResponse(content, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{filename(classe, fmt)}"'
     response["Cache-Control"] = "no-store"
     return response
@@ -93,7 +95,9 @@ def activity_export_view(request, pk, apk, fmt):
     if fmt not in EXPORTERS:
         raise Http404
     build, content_type = EXPORTERS[fmt]
-    response = HttpResponse(build(collect_activity(activity)), content_type=content_type)
+    content = build(collect_activity(activity))
+    log_action(request, "export_activite", classe=activity.classe, target=activity, detail=fmt)
+    response = HttpResponse(content, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{filename(activity, fmt)}"'
     response["Cache-Control"] = "no-store"
     return response

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Détail du journal · Console super admin{% endblock %}
+{% block content %}
+<main class="container console-shell">
+  <header class="page-head"><div><p class="eyebrow">Journal d’activité · #{{ event.pk }}</p><h1>{{ event.action }}</h1><p class="muted">Événement enregistré le {{ event.created_at|date:"d/m/Y à H:i:s" }} (heure de Lomé).</p></div><a class="btn ghost" href="{% url 'console:logs' %}">← Tous les journaux</a></header>
+  <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a href="{% url 'console:users' %}">Utilisateurs</a><a href="{% url 'console:feedbacks' %}">Retours</a><a aria-current="page" href="{% url 'console:logs' %}">Journaux</a><a href="{% url 'console:technical' %}">Documentation</a></nav>
+  <section class="card audit-detail-card">
+    <h2>Événement</h2>
+    <dl class="audit-detail-grid">
+      <div><dt>Utilisateur</dt><dd>{% if event.actor_user_id %}<a href="{% url 'console:logs' %}?user={{ event.actor_user_id }}">{{ event.actor_identifier }}</a>{% else %}{{ event.actor_identifier|default:"Anonyme" }}{% endif %} · {{ event.actor_role|default:"—" }}</dd></div>
+      <div><dt>ID utilisateur</dt><dd>{{ event.actor_user_id|default:"—" }}</dd></div>
+      <div><dt>Action</dt><dd><code>{{ event.action }}</code></dd></div>
+      <div><dt>Objet</dt><dd>{{ event.object_label|default:event.classe|default:"—" }}</dd></div>
+      <div><dt>Type et ID</dt><dd>{% if event.object_type %}{{ event.object_type }} · {{ event.object_id|default:"—" }}{% else %}—{% endif %}</dd></div>
+      <div><dt>URL</dt><dd><code>{{ event.path|default:"—" }}</code></dd></div>
+      <div><dt>Date et heure à Lomé</dt><dd>{{ event.created_at|date:"d/m/Y H:i:s" }}</dd></div>
+      <div><dt>Date UTC</dt><dd>{{ event_utc_label }}</dd></div>
+      <div><dt>Code HTTP et résultat</dt><dd>{{ event.response_status }} · {% if event.succeeded and event.response_status < 400 %}Succès{% else %}Échec / accès refusé{% endif %}</dd></div>
+      <div><dt>Adresse IP</dt><dd><code>{{ event.ip|default:"Inconnue" }}</code></dd></div>
+      <div><dt>Localisation</dt><dd>{% if event.country_code %}{{ event.country_flag }} {{ event.country }} ({{ event.country_code }}){% if event.region %} · {{ event.region }}{% endif %}{% if event.city %} · {{ event.city }}{% endif %}{% else %}Inconnu{% endif %}</dd></div>
+      <div><dt>Navigateur</dt><dd>{{ event.browser|default:"Inconnu" }}</dd></div>
+      <div><dt>Système et appareil</dt><dd>{{ event.operating_system|default:"Inconnu" }} · {{ event.device|default:"Inconnu" }}</dd></div>
+      <div class="audit-detail-wide"><dt>User agent</dt><dd><code class="break-all">{{ event.user_agent|default:"Inconnu" }}</code></dd></div>
+      <div class="audit-detail-wide"><dt>Détail</dt><dd>{{ event.detail|default:"—" }}</dd></div>
+    </dl>
+  </section>
+  <section class="card audit-detail-card"><h2>Changements</h2>
+    {% if changes %}<div class="table-wrap"><table><thead><tr><th>Champ</th><th>Avant</th><th>Après</th></tr></thead><tbody>{% for change in changes %}<tr><th>{{ change.field }}</th><td class="audit-before"><pre>{{ change.before }}</pre></td><td class="audit-after"><pre>{{ change.after }}</pre></td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">Aucun instantané avant/après n’est attaché à cette action.</p>{% endif %}
+  </section>
+  {% if event.object_type and event.object_id %}<p><a href="{% url 'console:logs' %}?object_type={{ event.object_type|urlencode }}&amp;object_id={{ event.object_id|urlencode }}">Voir l’historique de cet objet</a></p>{% endif %}
+  {% if event.actor_user_id %}<p><a href="{% url 'console:logs' %}?user={{ event.actor_user_id }}">Voir l’historique de cet utilisateur</a></p>{% endif %}
+  <section class="card flat"><div class="section-heading"><div><p class="eyebrow">Même objet</p><h2>Historique associé</h2></div></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Résultat</th></tr></thead><tbody>{% for item in related %}<tr><td><a href="{% url 'console:log_detail' item.pk %}">{{ item.created_at|date:"d/m/Y H:i:s" }}</a></td><td>{{ item.actor_identifier|default:"Anonyme" }}</td><td>{{ item.action }}</td><td>{{ item.response_status }}</td></tr>{% empty %}<tr><td colspan="4" class="muted">Aucun autre événement associé.</td></tr>{% endfor %}</tbody></table></div></section>
+</main>
+{% endblock %}

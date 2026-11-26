@@ -1,6 +1,30 @@
 from django.contrib import admin
+from django.contrib.auth import get_user_model
+from django.contrib.admin.sites import NotRegistered
 
 from .models import AuditLog, Classe, Commentaire, Document, DossierDocument, Groupe, Membre, RetourPlateforme
+
+UserModel = get_user_model()
+try:
+    admin.site.unregister(UserModel)
+except NotRegistered:
+    pass
+
+
+@admin.register(UserModel)
+class ReadOnlyUserAdmin(admin.ModelAdmin):
+    list_display = ("username", "email", "is_staff", "is_superuser", "is_active", "last_login")
+    list_filter = ("is_staff", "is_superuser", "is_active")
+    search_fields = ("username", "email", "first_name", "last_name")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Classe)
@@ -28,15 +52,29 @@ class CommentaireAdmin(admin.ModelAdmin):
 
 @admin.register(AuditLog)
 class AuditLogAdmin(admin.ModelAdmin):
-    list_display = ("created_at", "action", "user", "classe", "ip", "country", "device", "browser", "operating_system")
-    list_filter = ("action", "country_code", "device", "browser", "operating_system")
-    search_fields = ("ip", "country", "browser", "operating_system", "device", "user_agent", "user__username", "detail")
+    list_display = ("created_at", "actor_identifier", "actor_role", "action", "object_label", "ip", "country", "city", "response_status", "succeeded")
+    list_filter = ("action", "country_code", "succeeded", "response_status", "device", "browser")
+    search_fields = ("ip", "country", "city", "region", "path", "object_id", "object_label", "user__username", "actor_identifier", "detail")
     readonly_fields = (
-        "user", "classe", "action", "detail", "ip", "country", "country_code", "device", "browser",
-        "operating_system", "user_agent", "created_at",
+        "user", "actor_user_id", "actor_identifier", "actor_role", "classe", "action", "detail", "object_type", "object_id",
+        "object_label", "path", "response_status", "succeeded", "before_data", "after_data", "ip", "country",
+        "country_code", "region", "city", "latitude", "longitude", "device", "browser", "operating_system",
+        "user_agent", "created_at",
     )
 
     def has_add_permission(self, request):
+        return False
+
+    def has_module_permission(self, request):
+        return request.user.is_active and request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_active and request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
         return False
 
 

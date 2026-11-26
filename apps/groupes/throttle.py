@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core.cache import cache
+import ipaddress
 
 
 def client_ip(request) -> str:
@@ -8,6 +9,12 @@ def client_ip(request) -> str:
     Derrière N proxys de confiance (TRUSTED_PROXY_COUNT), la vraie IP est la N-ième en partant
     de la droite dans X-Forwarded-For : les valeurs ajoutées par le client à gauche sont ignorées.
     """
+    if getattr(settings, "TRUST_CLOUDFLARE_HEADERS", False):
+        candidate = request.META.get("HTTP_CF_CONNECTING_IP", "").strip()
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            pass
     proxies = getattr(settings, "TRUSTED_PROXY_COUNT", 0)
     if proxies > 0:
         parts = [p.strip() for p in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",") if p.strip()]

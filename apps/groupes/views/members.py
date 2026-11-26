@@ -34,7 +34,7 @@ from ..services.allocation import auto_assign
 from ..services.exporting import EXPORTERS, collect, collect_activity, filename
 from ..services.qr import qr_svg
 from ..throttle import too_many
-from ..audit import log_action
+from ..audit import log_action, snapshot_fields
 from ._common import (
     _classe,
     _activite,
@@ -65,10 +65,21 @@ def members(request, pk):
             if action == "delete" and not _can_delete(request):
                 raise Http404
             if action == "verify":
+                log_action(
+                    request, "membres_verifies", classe=classe, target=classe,
+                    detail=f"{count} personne(s)",
+                    before={"members": list(selected.values("id", "verified")[:100])},
+                    after={"verified_count": count},
+                )
                 selected.update(verified=True)
                 messages.success(request, f"{count} personne(s) validée(s).")
             elif action == "delete":
-                log_action(request, "membres_supprimes", classe=classe, detail=f"{count} personne(s)")
+                log_action(
+                    request, "membres_supprimes", classe=classe, target=classe,
+                    detail=f"{count} personne(s)",
+                    before={"members": list(selected.values("id", "full_name")[:100])},
+                    after={"deleted_count": count},
+                )
                 selected.delete()
                 messages.success(request, f"{count} personne(s) retirée(s) de la classe.")
             elif action == "assign":
@@ -89,10 +100,22 @@ def members(request, pk):
                         activite=group.activite, membre=member,
                         defaults={"groupe": group, "responded_at": now},
                     )
+                log_action(
+                    request, "affectations_activite_groupees", classe=classe, target=group,
+                    detail=f"{count} personne(s) · {group.activite.title} · {group.label}",
+                    before={"member_ids": list(selected.values_list("id", flat=True)[:100])},
+                    after={"group_id": group.pk, "assigned_count": count},
+                )
                 messages.success(request, f"{count} personne(s) affectée(s) à {group.activite.title} · {group.label}.")
             elif action == "clear_activity":
                 activity = get_object_or_404(Activite, pk=_int_or_none(request.POST.get("activity_id")), classe=classe)
                 Participation.objects.filter(activite=activity, membre__in=selected).update(groupe=None, responded_at=timezone.now())
+                log_action(
+                    request, "affectations_activite_effacees", classe=classe, target=activity,
+                    detail=f"{count} personne(s) · {activity.title}",
+                    before={"member_ids": list(selected.values_list("id", flat=True)[:100])},
+                    after={"group_id": None, "cleared_count": count},
+                )
                 messages.success(request, f"Affectations retirées pour {count} personne(s) dans « {activity.title} ».")
             else:
                 messages.error(request, "Action groupée inconnue.")
@@ -105,6 +128,10 @@ def members(request, pk):
                 member.responded_at = timezone.now()
             member.custom_data = {**member.custom_data, **add_form.extra_custom_data}
             member.save()
+            log_action(
+                request, "membre_ajoute", classe=classe, target=member, detail=member.full_name,
+                after=snapshot_fields(member, "number", "last_name", "first_name", "sex", "reference", "verified", "groupe", "custom_data"),
+            )
             messages.success(request, f"{member.full_name} ajouté.")
             return redirect("groupes:members", pk=classe.pk)
 
@@ -137,6 +164,7 @@ def members(request, pk):
 def member_edit(request, pk, mpk):
     classe = _classe(request, pk, write=request.method == "POST")
     member = get_object_or_404(Membre, pk=mpk, classe=classe)
+    before = snapshot_fields(member, "number", "last_name", "first_name", "sex", "reference", "verified", "groupe", "custom_data")
     form = MembreForm(request.POST or None, instance=member, classe=classe)
     if request.method == "POST" and form.is_valid():
         member = form.save(commit=False)
@@ -144,6 +172,11 @@ def member_edit(request, pk, mpk):
             member.responded_at = timezone.now()
         member.custom_data = {**member.custom_data, **form.extra_custom_data}
         member.save()
+        log_action(
+            request, "membre_modifie", classe=classe, target=member, detail=member.full_name,
+            before=before,
+            after=snapshot_fields(member, "number", "last_name", "first_name", "sex", "reference", "verified", "groupe", "custom_data"),
+        )
         messages.success(request, "Modifications enregistrées.")
         return redirect("groupes:members", pk=classe.pk)
     return render(request, "groupes/member_form.html", {
@@ -157,7 +190,11 @@ def member_edit(request, pk, mpk):
 def member_delete(request, pk, mpk):
     classe = _classe(request, pk, write=True, full=True)
     member = get_object_or_404(Membre, pk=mpk, classe=classe)
-    log_action(request, "membre_supprime", classe=classe, detail=member.full_name)
+    log_action(
+        request, "membre_supprime", classe=classe, target=member, detail=member.full_name,
+        before=snapshot_fields(member, "number", "last_name", "first_name", "sex", "reference", "verified", "groupe", "custom_data"),
+        after=None,
+    )
     member.delete()
     if _is_htmx(request):
         return HttpResponse("")
@@ -170,8 +207,11 @@ def member_delete(request, pk, mpk):
 def member_verify(request, pk, mpk):
     classe = _classe(request, pk, write=True)
     member = get_object_or_404(Membre.objects.select_related("groupe"), pk=mpk, classe=classe)
+    before = snapshot_fields(member, "verified")
     member.verified = True
     member.save(update_fields=["verified"])
+    log_action(request, "membre_verifie", classe=classe, target=member, detail=member.full_name,
+               before=before, after=snapshot_fields(member, "verified"), response_status=200)
     return render(request, "groupes/_member_row.html", {
         "m": member, "classe": classe, "can_edit": True, "can_delete": _can_delete(request),
     })
@@ -183,7 +223,15 @@ def member_assign(request, pk, mpk):
     """Affectation depuis la liste (HTMX → ligne HTML) ou le tableau (glisser-déposer → JSON)."""
     classe = _classe(request, pk, write=True)
     member = get_object_or_404(Membre.objects.select_related("groupe"), pk=mpk, classe=classe)
+    before = snapshot_fields(member, "groupe", "responded_at")
     ok, error = _assign(member, _int_or_none(request.POST.get("groupe")))
+    if ok:
+        member.refresh_from_db()
+    log_action(
+        request, "affectation_membre", classe=classe, target=member, detail=member.full_name,
+        before=before, after=snapshot_fields(member, "groupe", "responded_at") if ok else None,
+        succeeded=ok, response_status=200 if ok else 409,
+    )
     if _is_htmx(request):
         member.refresh_from_db()
         return render(request, "groupes/_member_row.html", {

@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from apps.groupes.audit import log_action
+from apps.groupes.audit import snapshot_fields
 from apps.groupes.models import Classe
 from apps.groupes.throttle import too_many, too_many_key
 
@@ -29,6 +30,7 @@ class ThrottledLoginView(auth_views.LoginView):
         if too_many(request, "login", 15, 300) or (username and too_many_key(f"login-user:{username}", 8, 300)):
             form = self.get_form()
             form.add_error(None, "Trop de tentatives. Patiente quelques minutes puis réessaie.")
+            log_action(request, "connexion_echec", detail=username, succeeded=False, response_status=429)
             return self.render_to_response(self.get_context_data(form=form), status=429)
         return super().post(request, *args, **kwargs)
 
@@ -38,8 +40,14 @@ class ThrottledLoginView(auth_views.LoginView):
 
     def form_invalid(self, form):
         attempted_username = (self.request.POST.get("username") or "").strip()[:150]
-        log_action(self.request, "connexion_echec", detail=attempted_username)
+        log_action(self.request, "connexion_echec", detail=attempted_username, succeeded=False, response_status=200)
         return super().form_invalid(form)
+
+
+class AuditedLogoutView(auth_views.LogoutView):
+    def post(self, request, *args, **kwargs):
+        log_action(request, "deconnexion")
+        return super().post(request, *args, **kwargs)
 
 
 class ThrottledPasswordResetView(auth_views.PasswordResetView):
@@ -50,10 +58,15 @@ class ThrottledPasswordResetView(auth_views.PasswordResetView):
 
     def post(self, request, *args, **kwargs):
         if too_many(request, "password_reset", 5, 3600):
+            log_action(request, "reinitialisation_mdp_echec", succeeded=False, response_status=429)
             return render(request, self.template_name, {
                 "form": self.get_form(), "throttled": True,
             }, status=429)
         return super().post(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        log_action(self.request, "reinitialisation_mdp_demandee")
+        return super().form_valid(form)
 
 
 @require_http_methods(["GET", "POST"])
@@ -78,7 +91,12 @@ def profile(request):
     form = ProfileForm(request.POST or None, instance=request.user, prefix="p")
     delete_form = DeleteAccountForm(user=request.user, prefix="d")
     if request.method == "POST" and form.is_valid():
+        before = snapshot_fields(request.user, "username", "first_name", "last_name", "email")
         form.save()
+        log_action(
+            request, "profil_modifie", target=request.user, detail=request.user.username,
+            before=before, after=snapshot_fields(request.user, "username", "first_name", "last_name", "email"),
+        )
         messages.success(request, "Profil mis à jour.")
         return redirect("accounts:profile")
     owned = Classe.objects.filter(owner=request.user).count()
@@ -88,6 +106,10 @@ def profile(request):
 @login_required
 @require_POST
 def delete_account(request):
+    if request.user.is_superuser:
+        log_action(request, "suppression_super_admin_refusee", succeeded=False, response_status=403)
+        messages.error(request, "Le compte du super administrateur ne peut pas être supprimé depuis la plateforme.")
+        return redirect("accounts:profile")
     form = DeleteAccountForm(request.POST, user=request.user, prefix="d")
     if not form.is_valid():
         profile_form = ProfileForm(instance=request.user, prefix="p")
@@ -125,4 +147,5 @@ def export_data(request):
     }
     response = HttpResponse(json.dumps(data, ensure_ascii=False, indent=2), content_type="application/json; charset=utf-8")
     response["Content-Disposition"] = 'attachment; filename="cohorte-mes-donnees.json"'
+    log_action(request, "export_donnees_compte", detail=f"{len(data['classes'])} classe(s)")
     return response

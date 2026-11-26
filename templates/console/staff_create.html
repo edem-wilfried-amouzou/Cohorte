@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Créer un profil staff · Console super admin{% endblock %}
+{% block content %}
+<main class="container console-shell">
+  <header class="page-head"><div><p class="eyebrow">Administration de la plateforme</p><h1>Créer un profil staff</h1><p class="muted">Le compte aura accès uniquement aux fonctions couvertes par les permissions sélectionnées.</p></div><a class="btn ghost" href="{% url 'console:users' %}">← Utilisateurs</a></header>
+  <nav class="console-tabs" aria-label="Console d’administration"><a href="{% url 'console:home' %}">Vue d’ensemble</a><a aria-current="page" href="{% url 'console:users' %}">Utilisateurs</a><a href="{% url 'console:feedbacks' %}">Retours</a><a href="{% url 'console:logs' %}">Journaux</a><a href="{% url 'console:technical' %}">Documentation</a></nav>
+  <form method="post" class="card staff-profile-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="msg error" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+    <div class="staff-profile-fields">
+      {% for field in form %}{% if field.name != "permissions" %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<span class="help">{{ field.help_text }}</span>{% endif %}{% for error in field.errors %}<span class="err">{{ error }}</span>{% endfor %}</div>{% endif %}{% endfor %}
+    </div>
+    <fieldset class="staff-permissions"><legend>{{ form.permissions.label }}</legend><p class="muted small">{{ form.permissions.help_text }}</p>{% for checkbox in form.permissions %}<label class="staff-permission">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>{% empty %}<p class="muted">Aucune permission disponible. Applique les migrations avant de créer des profils avec permissions.</p>{% endfor %}{% for error in form.permissions.errors %}<span class="err">{{ error }}</span>{% endfor %}</fieldset>
+    <div class="row"><button class="btn" type="submit">Créer le profil staff</button><a class="btn ghost" href="{% url 'console:users' %}">Annuler</a></div>
+  </form>
+</main>
+{% endblock %}

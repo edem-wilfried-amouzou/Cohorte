@@ -554,25 +554,76 @@ class RetourPlateforme(models.Model):
         return f"{self.kind_label} · {self.subject}"
 
 
+class AuditLogQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise TypeError("Les journaux d’audit sont immuables.")
+
+    def delete(self):
+        raise TypeError("Les journaux d’audit ne peuvent pas être supprimés.")
+
+
 class AuditLog(models.Model):
-    """Journal des actions sensibles et des informations techniques du client."""
+    """Journal immuable des actions, résultats et informations techniques du client."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    actor_user_id = models.PositiveBigIntegerField(null=True, blank=True)
+    actor_identifier = models.CharField(max_length=150, blank=True)
+    actor_role = models.CharField(max_length=30, blank=True)
     classe = models.ForeignKey(Classe, null=True, blank=True, on_delete=models.SET_NULL, related_name="journal")
     action = models.CharField(max_length=40)
     detail = models.CharField(max_length=300, blank=True)
+    object_type = models.CharField(max_length=100, blank=True)
+    object_id = models.CharField(max_length=100, blank=True)
+    object_label = models.CharField(max_length=200, blank=True)
+    path = models.CharField(max_length=300, blank=True)
+    response_status = models.PositiveSmallIntegerField(default=200)
+    succeeded = models.BooleanField(default=True)
+    before_data = models.JSONField(null=True, blank=True)
+    after_data = models.JSONField(null=True, blank=True)
     ip = models.CharField(max_length=64, blank=True)
     country = models.CharField(max_length=80, blank=True)
     country_code = models.CharField(max_length=2, blank=True)
+    region = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
     operating_system = models.CharField(max_length=80, blank=True)
     browser = models.CharField(max_length=80, blank=True)
     device = models.CharField(max_length=40, blank=True)
     user_agent = models.CharField(max_length=512, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    objects = AuditLogQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
-        indexes = [models.Index(fields=["classe", "-created_at"])]
+        indexes = [
+            models.Index(fields=["classe", "-created_at"], name="groupes_aud_classe__3e4bd9_idx"),
+            models.Index(fields=["user", "-created_at"], name="audit_user_created_idx"),
+            models.Index(fields=["actor_user_id", "-created_at"], name="audit_actor_id_created_idx"),
+            models.Index(fields=["action", "-created_at"], name="audit_action_created_idx"),
+            models.Index(fields=["object_type", "object_id"], name="audit_object_idx"),
+            models.Index(fields=["country_code", "-created_at"], name="audit_country_created_idx"),
+            models.Index(fields=["city", "-created_at"], name="audit_city_created_idx"),
+            models.Index(fields=["ip", "-created_at"], name="audit_ip_created_idx"),
+            models.Index(fields=["response_status", "-created_at"], name="audit_status_created_idx"),
+        ]
+        verbose_name = "journal d’activité"
+        verbose_name_plural = "journaux d’activité"
+
+    def save(self, *args, **kwargs):
+        if self.pk and type(self).objects.filter(pk=self.pk).exists():
+            raise TypeError("Les journaux d’audit sont immuables.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise TypeError("Les journaux d’audit ne peuvent pas être supprimés.")
 
     def __str__(self):
         return f"{self.created_at:%Y-%m-%d %H:%M} {self.action}"
+
+    @property
+    def country_flag(self):
+        if len(self.country_code) != 2 or not self.country_code.isalpha():
+            return ""
+        return "".join(chr(127397 + ord(char)) for char in self.country_code.upper())
