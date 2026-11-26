@@ -8,7 +8,10 @@ def backfill_audit_context(apps, schema_editor):
     for entry in AuditLog.objects.using(database).select_related("user", "classe").iterator(chunk_size=500):
         if entry.user_id and entry.user:
             entry.actor_user_id = entry.user_id
-            entry.actor_identifier = entry.user.get_username()[:150]
+            # Migration-state model classes contain fields, not runtime methods such as
+            # AbstractUser.get_username(). Keep this compatible with custom user models too.
+            identifier = getattr(entry.user, "username", "") or getattr(entry.user, "email", "") or entry.user_id
+            entry.actor_identifier = str(identifier)[:150]
             entry.actor_role = "super_admin" if entry.user.is_superuser else "staff" if entry.user.is_staff else "utilisateur"
         elif entry.action == "connexion_echec":
             entry.actor_identifier = (entry.detail or "")[:150].split(" ")[0]
